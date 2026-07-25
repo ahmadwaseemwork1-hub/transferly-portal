@@ -6,8 +6,94 @@ import {
   updateClientStatus,
   resetClientPassword,
   generateInvoiceForClient,
+  updateClientDetails,
 } from "@/app/admin/actions";
-import { Button, Input, Label } from "@/components/ui";
+import { Button, Input, Label, Select } from "@/components/ui";
+
+const US_STATES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
+  "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
+  "Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
+  "Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire",
+  "New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio",
+  "Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota",
+  "Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia",
+  "Wisconsin","Wyoming","Washington D.C.",
+];
+
+export function ClientDetailsEditor({
+  clientId,
+  initialState,
+  initialRequirements,
+  initialNotes,
+}: {
+  clientId: string;
+  initialState: string;
+  initialRequirements: string;
+  initialNotes: string;
+}) {
+  const router = useRouter();
+  const [state, setState] = useState(initialState);
+  const [requirements, setRequirements] = useState(initialRequirements);
+  const [notes, setNotes] = useState(initialNotes);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+    const result = await updateClientDetails(clientId, { state, requirements, notes });
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setMessage("Client details saved.");
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={handleSave} className="flex flex-col gap-4">
+      <div>
+        <Label>State</Label>
+        <Select value={state} onChange={(e) => setState(e.target.value)}>
+          <option value="">— Select state —</option>
+          {US_STATES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label>Lead requirements</Label>
+        <textarea
+          rows={5}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="Describe lead quality requirements, filters, or notes for agents handling this client's transfers (e.g. 'Only send homeowners age 35-65 from Texas, no DUIs, minimum $100k coverage interest')."
+          value={requirements}
+          onChange={(e) => setRequirements(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label>Internal notes</Label>
+        <textarea
+          rows={3}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="Private notes about this client (billing terms, preferences, history, etc.)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
+      {message && <p className="text-sm text-success">{message}</p>}
+      <Button type="submit" size="sm" className="self-start" disabled={loading}>
+        {loading ? "Saving..." : "Save details"}
+      </Button>
+    </form>
+  );
+}
 
 export function StatusToggle({
   clientId,

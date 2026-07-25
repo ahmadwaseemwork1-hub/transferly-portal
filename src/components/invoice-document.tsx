@@ -3,9 +3,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintButton } from "./print-button";
 
 export function InvoiceDocument({
-  invoice,
-  client,
-  transfers,
+  invoice, client, transfers,
 }: {
   invoice: Invoice;
   client: Client;
@@ -19,8 +17,8 @@ export function InvoiceDocument({
       <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
         <div className="flex items-start justify-between border-b border-border pb-6">
           <div>
-            <p className="font-serif text-xl font-semibold text-primary">Transferly</p>
-            <p className="mt-1 text-sm text-muted">Live transfer billing</p>
+            <p className="font-serif text-xl font-semibold text-primary">VOXPACT</p>
+            <p className="mt-1 text-sm text-muted">Auto Insurance Live Transfer Billing</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold text-foreground">{invoice.invoice_number}</p>
@@ -32,6 +30,7 @@ export function InvoiceDocument({
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Billed to</p>
             <p className="mt-1 font-medium text-foreground">{client.business_name}</p>
+            {client.state && <p className="text-sm text-muted">{client.state}</p>}
             <p className="text-sm text-muted">{client.contact_name}</p>
             <p className="text-sm text-muted">{client.email}</p>
           </div>
@@ -48,6 +47,7 @@ export function InvoiceDocument({
             <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
               <th className="py-2 font-medium">Date</th>
               <th className="py-2 font-medium">Lead</th>
+              <th className="py-2 font-medium">State</th>
               <th className="py-2 font-medium">Insurance type</th>
               <th className="py-2 text-right font-medium">Value</th>
             </tr>
@@ -57,6 +57,7 @@ export function InvoiceDocument({
               <tr key={t.id} className="border-b border-border">
                 <td className="py-2 text-foreground">{formatDate(t.transfer_date)}</td>
                 <td className="py-2 text-foreground">{t.lead_name ?? "—"}</td>
+                <td className="py-2 text-muted">{t.state ?? "—"}</td>
                 <td className="py-2 text-muted">{t.insurance_type ?? "—"}</td>
                 <td className="py-2 text-right text-foreground">{formatCurrency(t.value)}</td>
               </tr>
@@ -75,6 +76,10 @@ export function InvoiceDocument({
               <span className="text-primary">{formatCurrency(invoice.total_amount)}</span>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 border-t border-border pt-4 text-center text-xs text-muted">
+          VOXPACT — Auto Insurance Live Transfer Portal
         </div>
       </div>
     </div>

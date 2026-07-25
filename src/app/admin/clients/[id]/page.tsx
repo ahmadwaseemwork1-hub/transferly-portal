@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, Badge, StatCard } from "@/components/ui";
-import { TransferTable } from "@/components/transfer-table";
+import { FilterableTransferTable } from "@/components/filterable-transfer-table";
 import { computeStats } from "@/lib/stats";
 import { formatCurrency, todayISO, cn } from "@/lib/utils";
 import type { Transfer } from "@/lib/types";
@@ -11,6 +11,7 @@ import {
   StatusToggle,
   ResetPasswordForm,
   GenerateInvoiceButton,
+  ClientDetailsEditor,
 } from "./client-actions";
 
 export default async function ClientDetailPage({
@@ -64,6 +65,15 @@ export default async function ClientDetailPage({
           <p className="mt-1 text-sm text-muted">
             {client.contact_name} · {client.email} · {client.phone}
           </p>
+          {(client.state || client.requirements) && (
+            <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted">
+              {client.state && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                  📍 {client.state}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <StatusToggle clientId={client.id} status={client.status} />
@@ -79,6 +89,18 @@ export default async function ClientDetailPage({
       </div>
 
       <Card>
+        <CardHeader title="Client details" description="State, requirements, and notes for this client." />
+        <div className="p-6">
+          <ClientDetailsEditor
+            clientId={client.id}
+            initialState={client.state ?? ""}
+            initialRequirements={client.requirements ?? ""}
+            initialNotes={client.notes ?? ""}
+          />
+        </div>
+      </Card>
+
+      <Card>
         <CardHeader title="Reset login password" />
         <div className="p-6">
           <ResetPasswordForm clientId={client.id} />
@@ -86,8 +108,8 @@ export default async function ClientDetailPage({
       </Card>
 
       <Card>
-        <CardHeader title="Transfer history" description="All transfers sent to this client." />
-        <TransferTable transfers={transferList} />
+        <CardHeader title="Transfer history" description="Search by lead name, filter by status or date range." />
+        <FilterableTransferTable transfers={transferList} />
       </Card>
     </div>
   );

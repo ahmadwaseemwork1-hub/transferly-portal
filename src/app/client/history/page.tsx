@@ -1,6 +1,6 @@
 import { requireClient } from "@/lib/auth";
 import { Card, CardHeader } from "@/components/ui";
-import { TransferTable } from "@/components/transfer-table";
+import { FilterableTransferTable } from "@/components/filterable-transfer-table";
 import type { Transfer } from "@/lib/types";
 
 export default async function ClientHistoryPage() {
@@ -19,8 +19,8 @@ export default async function ClientHistoryPage() {
         <p className="mt-1 text-sm text-muted">Every transfer you've ever received.</p>
       </div>
       <Card>
-        <CardHeader title="All transfers" />
-        <TransferTable transfers={(transfers ?? []) as Transfer[]} />
+        <CardHeader title="All transfers" description="Search by lead name, filter by status or date range." />
+        <FilterableTransferTable transfers={(transfers ?? []) as Transfer[]} />
       </Card>
     </div>
   );

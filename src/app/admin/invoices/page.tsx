@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Card, Badge, EmptyState } from "@/components/ui";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { Card, EmptyState } from "@/components/ui";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Client, Invoice } from "@/lib/types";
+import { InvoiceStatusButton } from "./invoice-status-actions";
 
 export default async function AdminInvoicesPage() {
   const supabase = await createClient();
@@ -66,15 +67,10 @@ export default async function AdminInvoicesPage() {
                       {formatCurrency(inv.total_amount)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge
-                        className={cn(
-                          inv.status === "paid"
-                            ? "bg-success-soft text-success"
-                            : "bg-accent-soft text-accent"
-                        )}
-                      >
-                        {inv.status}
-                      </Badge>
+                      <InvoiceStatusButton
+                        invoiceId={inv.id}
+                        currentStatus={inv.status}
+                      />
                     </td>
                   </tr>
                 ))}

@@ -1,8 +1,9 @@
-export type Role = "admin" | "client";
+export type Role = "admin" | "client" | "employee";
 
 export type TransferStatus = "pending" | "accepted" | "declined";
 
 export type ClientStatus = "active" | "paused";
+export type EmployeeStatus = "active" | "paused";
 
 export interface Client {
   id: string;
@@ -13,14 +14,38 @@ export interface Client {
   price_per_transfer: number | null;
   status: ClientStatus;
   notes: string | null;
+  state: string | null;
+  requirements: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  daily_cap: number;
+  status: EmployeeStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeUpload {
+  id: string;
+  employee_id: string;
+  upload_date: string;
+  transfer_count: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface Profile {
   id: string;
   role: Role;
   client_id: string | null;
+  employee_id: string | null;
   full_name: string | null;
   created_at: string;
 }
@@ -28,7 +53,7 @@ export interface Profile {
 export interface Transfer {
   id: string;
   client_id: string;
-  transfer_date: string; // YYYY-MM-DD
+  transfer_date: string;
   transfer_time: string | null;
   lead_name: string | null;
   phone: string | null;
@@ -58,7 +83,6 @@ export interface Invoice {
   created_at: string;
 }
 
-/** The canonical set of fields the app understands from an uploaded CSV. */
 export const TRANSFER_FIELDS = [
   "client",
   "transfer_date",
