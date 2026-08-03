@@ -97,10 +97,30 @@ export async function resetClientPassword(clientId: string, newPassword: string)
   return { ok: true, data: undefined };
 }
 
+/** Archive is a reversible soft-delete: hides the client from active lists and
+ *  blocks their login, but keeps every historical transfer/invoice intact. */
+export async function archiveClient(clientId: string): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  const admin = createAdminClient();
+  const { error } = await admin.from("clients").update({ archived_at: new Date().toISOString() }).eq("id", clientId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin"); revalidatePath("/admin/clients"); revalidatePath(`/admin/clients/${clientId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function restoreClient(clientId: string): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  const admin = createAdminClient();
+  const { error } = await admin.from("clients").update({ archived_at: null }).eq("id", clientId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin"); revalidatePath("/admin/clients"); revalidatePath(`/admin/clients/${clientId}`);
+  return { ok: true, data: undefined };
+}
+
 // ─── Employees ──────────────────────────────────────────────────────────────
 
 export async function createEmployeeAccount(input: {
-  name: string; email: string; daily_cap: string; password: string; notes?: string;
+  name: string; email: string; daily_cap: string; password: string; notes?: string; pkr_rate_per_transfer?: string;
 }): Promise<ActionResult<{ employeeId: string }>> {
   try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
 
@@ -114,6 +134,7 @@ export async function createEmployeeAccount(input: {
   const { data: empRow, error: empError } = await admin.from("employees").insert({
     name, email,
     daily_cap: input.daily_cap ? Number(input.daily_cap) : 10,
+    pkr_rate_per_transfer: input.pkr_rate_per_transfer ? Number(input.pkr_rate_per_transfer) : 0,
     notes: input.notes?.trim() || null,
   }).select().single();
 
@@ -156,6 +177,36 @@ export async function updateEmployeeStatus(employeeId: string, status: "active" 
   try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
   const admin = createAdminClient();
   const { error } = await admin.from("employees").update({ status }).eq("id", employeeId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/employees"); revalidatePath(`/admin/employees/${employeeId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function updateEmployeePkrRate(employeeId: string, pkr_rate_per_transfer: number): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  if (pkr_rate_per_transfer < 0) return { ok: false, error: "PKR rate must be a positive number." };
+  const admin = createAdminClient();
+  const { error } = await admin.from("employees").update({ pkr_rate_per_transfer }).eq("id", employeeId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/admin/employees/${employeeId}`); revalidatePath("/admin/employees");
+  return { ok: true, data: undefined };
+}
+
+/** Archive is a reversible soft-delete: hides the employee from active lists
+ *  and blocks their login, but keeps every historical lead submission intact. */
+export async function archiveEmployee(employeeId: string): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  const admin = createAdminClient();
+  const { error } = await admin.from("employees").update({ archived_at: new Date().toISOString() }).eq("id", employeeId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/employees"); revalidatePath(`/admin/employees/${employeeId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function restoreEmployee(employeeId: string): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  const admin = createAdminClient();
+  const { error } = await admin.from("employees").update({ archived_at: null }).eq("id", employeeId);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/employees"); revalidatePath(`/admin/employees/${employeeId}`);
   return { ok: true, data: undefined };
@@ -292,6 +343,49 @@ export async function generateInvoiceForClient(clientId: string): Promise<Action
   return { ok: true, data: { invoiceId: invoice.id } };
 }
 
+/**
+ * Marks an invoice as sent, and — if RESEND_API_KEY is configured — emails
+ * the client a link to view/download it. Without that env var, the invoice
+ * is still marked sent so admin can download the PDF and send it manually.
+ */
+export async function sendInvoiceToClient(invoiceId: string): Promise<ActionResult<{ emailed: boolean }>> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  const admin = createAdminClient();
+
+  const { data: invoice, error } = await admin.from("invoices")
+    .update({ status: "sent" }).eq("id", invoiceId).select("client_id, invoice_number").single();
+  if (error || !invoice) return { ok: false, error: error?.message ?? "Could not update invoice." };
+
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${invoiceId}`);
+  revalidatePath("/client/invoices");
+
+  const resendKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  if (!resendKey || !fromEmail) {
+    return { ok: true, data: { emailed: false } };
+  }
+
+  const { data: client } = await admin.from("clients").select("email, business_name").eq("id", invoice.client_id).single();
+  if (!client?.email) return { ok: true, data: { emailed: false } };
+
+  try {
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: client.email,
+        subject: `Invoice ${invoice.invoice_number} from VOXPACT`,
+        html: `<p>Hi ${client.business_name},</p><p>Your invoice <strong>${invoice.invoice_number}</strong> is ready. Log in to your Transferly portal to view and download it.</p>`,
+      }),
+    });
+    return { ok: true, data: { emailed: resp.ok } };
+  } catch {
+    return { ok: true, data: { emailed: false } };
+  }
+}
+
 export async function updateInvoiceStatus(
   invoiceId: string,
   status: "generated" | "sent" | "paid"
@@ -303,6 +397,21 @@ export async function updateInvoiceStatus(
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/invoices/${invoiceId}`);
   revalidatePath("/client/invoices");
+  return { ok: true, data: undefined };
+}
+
+/** Hard-deletes a single lead. Only allowed while it has never been invoiced,
+ *  so billing history can never be silently erased. */
+export async function deleteTransfer(transferId: string): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "Not authorized." }; }
+  const admin = createAdminClient();
+  const { data: transfer } = await admin.from("transfers").select("client_id, invoice_id").eq("id", transferId).single();
+  if (!transfer) return { ok: false, error: "Lead not found." };
+  if (transfer.invoice_id) return { ok: false, error: "Cannot delete a lead that has already been invoiced." };
+
+  const { error } = await admin.from("transfers").delete().eq("id", transferId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin"); revalidatePath(`/admin/clients/${transfer.client_id}`); revalidatePath("/client");
   return { ok: true, data: undefined };
 }
 

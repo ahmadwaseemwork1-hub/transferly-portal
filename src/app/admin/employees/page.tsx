@@ -4,28 +4,44 @@ import { Card, Badge, Button, EmptyState, HeroBanner } from "@/components/ui";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Employee, EmployeeUpload } from "@/lib/types";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 
 export default async function AdminEmployeesPage() {
   const supabase = await createClient();
 
-  const [{ data: employees }, { data: uploads }] = await Promise.all([
-    supabase.from("employees").select("*").order("name"),
+  const monthAgoISO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const [{ data: employees }, { data: uploads }, { data: leads }, { count: archivedCount }] = await Promise.all([
+    supabase.from("employees").select("*").is("archived_at", null).order("name"),
     supabase.from("employee_uploads").select("employee_id, transfer_count, upload_date")
-      .gte("upload_date", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)),
+      .gte("upload_date", monthAgoISO),
+    // Never select `value` — this page must not surface client dollar amounts.
+    supabase.from("transfers").select("submitted_by_employee_id, transfer_date")
+      .not("submitted_by_employee_id", "is", null)
+      .gte("transfer_date", monthAgoISO),
+    supabase.from("employees").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
   ]);
 
   const empList = (employees ?? []) as Employee[];
   const uploadList = (uploads ?? []) as EmployeeUpload[];
+  const leadList = (leads ?? []) as { submitted_by_employee_id: string; transfer_date: string }[];
 
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  function getStats(empId: string) {
+  function getStats(empId: string, pkrRate: number) {
     const empUploads = uploadList.filter(u => u.employee_id === empId);
     const todayTotal = empUploads.filter(u => u.upload_date === today).reduce((s, u) => s + u.transfer_count, 0);
     const weekTotal = empUploads.filter(u => u.upload_date >= weekAgo).reduce((s, u) => s + u.transfer_count, 0);
     const monthTotal = empUploads.reduce((s, u) => s + u.transfer_count, 0);
-    return { todayTotal, weekTotal, monthTotal };
+
+    const empLeads = leadList.filter(l => l.submitted_by_employee_id === empId);
+    const leadsToday = empLeads.filter(l => l.transfer_date === today).length;
+    const leadsWeek = empLeads.filter(l => l.transfer_date >= weekAgo).length;
+    const leadsMonth = empLeads.length;
+    const payable = { today: leadsToday * pkrRate, week: leadsWeek * pkrRate, month: leadsMonth * pkrRate };
+
+    return { todayTotal, weekTotal, monthTotal, payable };
   }
 
   const activeCount = empList.filter(e => e.status === "active").length;
@@ -34,9 +50,10 @@ export default async function AdminEmployeesPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeRefresher tables={["employees", "employee_uploads", "transfers"]} />
       <HeroBanner
         title="Employees"
-        subtitle={`${activeCount} active · ${totalToday} transfers today · ${totalMonth} this month`}
+        subtitle={`${activeCount} active · ${totalToday} transfers today · ${totalMonth} this month${archivedCount ? ` · ${archivedCount} archived` : ""}`}
         badge="Team"
         action={
           <Link href="/admin/employees/new">
@@ -63,7 +80,7 @@ export default async function AdminEmployeesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {empList.map((emp) => {
-            const stats = getStats(emp.id);
+            const stats = getStats(emp.id, emp.pkr_rate_per_transfer);
             const capUsed = stats.todayTotal;
             const capPct = emp.daily_cap > 0 ? Math.min(100, Math.round((capUsed / emp.daily_cap) * 100)) : 0;
             return (
@@ -119,6 +136,13 @@ export default async function AdminEmployeesPage() {
                       <p className="text-lg font-bold text-foreground">{stats.monthTotal}</p>
                       <p className="text-xs text-muted">Month</p>
                     </div>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-accent-soft px-3 py-2">
+                    <span className="text-xs font-medium text-accent">Payable this month</span>
+                    <span className="text-sm font-bold text-accent">
+                      Rs. {stats.payable.month.toLocaleString()}
+                    </span>
                   </div>
                 </Card>
               </Link>

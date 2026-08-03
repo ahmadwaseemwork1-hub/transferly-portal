@@ -10,15 +10,18 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const archived = searchParams.get("archived") === "1";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const supabase = createClient();
+    const supabase = createClient({ rememberMe });
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -70,6 +73,20 @@ function LoginForm() {
               <Input type="password" required autoComplete="current-password"
                 value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+              />
+              Keep me signed in on this browser
+            </label>
+            {archived && (
+              <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/10 px-3 py-2.5">
+                <p className="text-sm text-warning">This account has been archived. Contact your admin if this is unexpected.</p>
+              </div>
+            )}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5">
                 <svg className="mt-0.5 h-4 w-4 shrink-0 text-danger" viewBox="0 0 16 16" fill="currentColor">

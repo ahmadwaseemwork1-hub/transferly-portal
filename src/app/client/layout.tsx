@@ -19,7 +19,12 @@ export default async function ClientLayout({ children }: { children: React.React
   if (profile?.role !== "client") redirect("/login");
 
   const { data: client } = await supabase
-    .from("clients").select("business_name").eq("id", profile.client_id).single();
+    .from("clients").select("business_name, archived_at").eq("id", profile.client_id).single();
+
+  if (client?.archived_at) {
+    await supabase.auth.signOut();
+    redirect("/login?archived=1");
+  }
 
   return (
     <div className="min-h-screen bg-background">

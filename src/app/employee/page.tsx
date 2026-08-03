@@ -3,18 +3,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardHeader, StatCard, HeroBanner } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { Employee, EmployeeUpload } from "@/lib/types";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 
 export default async function EmployeeDashboardPage() {
   const { profile } = await requireEmployee();
   const admin = createAdminClient();
 
-  const [{ data: employee }, { data: uploads }] = await Promise.all([
+  const [{ data: employee }, { data: uploads }, { data: leads }] = await Promise.all([
     admin.from("employees").select("*").eq("id", profile.employee_id!).single(),
     admin.from("employee_uploads").select("*").eq("employee_id", profile.employee_id!).order("upload_date", { ascending: false }).limit(30),
+    // Never select `value` here — employees only ever see their own PKR rate, not client dollar amounts.
+    admin.from("transfers").select("transfer_date").eq("submitted_by_employee_id", profile.employee_id!),
   ]);
 
   const emp = employee as Employee;
   const uploadList = (uploads ?? []) as EmployeeUpload[];
+  const leadDates = (leads ?? []).map((l) => l.transfer_date as string);
 
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -25,6 +29,13 @@ export default async function EmployeeDashboardPage() {
   const monthTotal = uploadList.filter(u => u.upload_date >= monthAgo).reduce((s, u) => s + u.transfer_count, 0);
   const allTime = uploadList.reduce((s, u) => s + u.transfer_count, 0);
 
+  const rate = emp?.pkr_rate_per_transfer ?? 0;
+  const leadsToday = leadDates.filter((d) => d === today).length;
+  const leadsWeek = leadDates.filter((d) => d >= weekAgo).length;
+  const leadsMonth = leadDates.filter((d) => d >= monthAgo).length;
+  const leadsAllTime = leadDates.length;
+  const pkr = (n: number) => "Rs. " + new Intl.NumberFormat("en-PK", { maximumFractionDigits: 0 }).format(n * rate);
+
   const capPct = emp?.daily_cap > 0 ? Math.min(100, Math.round((todayTotal / emp.daily_cap) * 100)) : 0;
   const remaining = Math.max(0, (emp?.daily_cap ?? 0) - todayTotal);
 
@@ -32,6 +43,7 @@ export default async function EmployeeDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeRefresher tables={["transfers", "employee_uploads"]} />
       <HeroBanner
         title={`Welcome back, ${profile.full_name?.split(" ")[0] ?? "team"}!`}
         subtitle={`Daily cap: ${todayTotal} / ${emp?.daily_cap ?? 0} · ${capStatus}`}
@@ -124,6 +136,36 @@ export default async function EmployeeDashboardPage() {
           }
         />
       </div>
+
+      {/* PKR earnings from submitted leads (Submit Lead flow) */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-1">
+          <p className="font-semibold text-foreground">Your PKR earnings</p>
+          <span className="text-xs text-muted">Rs. {rate.toLocaleString()} per lead submitted</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mt-4 lg:grid-cols-4">
+          <div>
+            <p className="text-xs text-muted">Today</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsToday)}</p>
+            <p className="text-xs text-muted">{leadsToday} lead{leadsToday !== 1 ? "s" : ""}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">This week</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsWeek)}</p>
+            <p className="text-xs text-muted">{leadsWeek} lead{leadsWeek !== 1 ? "s" : ""}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">This month</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsMonth)}</p>
+            <p className="text-xs text-muted">{leadsMonth} lead{leadsMonth !== 1 ? "s" : ""}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">All time</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsAllTime)}</p>
+            <p className="text-xs text-muted">{leadsAllTime} lead{leadsAllTime !== 1 ? "s" : ""}</p>
+          </div>
+        </div>
+      </Card>
 
       {/* Recent uploads */}
       <Card>

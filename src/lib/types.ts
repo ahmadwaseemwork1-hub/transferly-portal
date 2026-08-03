@@ -16,6 +16,7 @@ export interface Client {
   notes: string | null;
   state: string | null;
   requirements: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,10 +26,20 @@ export interface Employee {
   name: string;
   email: string;
   daily_cap: number;
+  pkr_rate_per_transfer: number;
   status: EmployeeStatus;
   notes: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DuplicateLeadAttempt {
+  id: string;
+  client_id: string | null;
+  employee_id: string | null;
+  phone: string | null;
+  attempted_at: string;
 }
 
 export interface EmployeeUpload {
@@ -66,9 +77,43 @@ export interface Transfer {
   responded_at: string | null;
   invoice_id: string | null;
   created_by: string | null;
+  dob: string | null;
+  address: string | null;
+  num_cars: number | null;
+  cars: string | null;
+  current_carrier: string | null;
+  home_owner: boolean | null;
+  submitted_by_employee_id: string | null;
+  billable: boolean;
+  billable_note: string | null;
   created_at: string;
   updated_at: string;
 }
+
+/** Fields an employee must fill in before a lead can be submitted to a client. */
+export const LEAD_DETAIL_FIELDS = [
+  "lead_name",
+  "phone",
+  "dob",
+  "address",
+  "num_cars",
+  "cars",
+  "current_carrier",
+  "home_owner",
+] as const;
+
+export type LeadDetailField = (typeof LEAD_DETAIL_FIELDS)[number];
+
+export const LEAD_DETAIL_FIELD_LABELS: Record<LeadDetailField, string> = {
+  lead_name: "Name",
+  phone: "Phone",
+  dob: "Date of birth",
+  address: "Address",
+  num_cars: "Number of cars",
+  cars: "Car(s)",
+  current_carrier: "Current carrier",
+  home_owner: "Home owner",
+};
 
 export interface Invoice {
   id: string;

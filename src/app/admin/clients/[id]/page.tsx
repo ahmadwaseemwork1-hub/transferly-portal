@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, Badge, StatCard } from "@/components/ui";
 import { FilterableTransferTable } from "@/components/filterable-transfer-table";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 import { computeStats } from "@/lib/stats";
 import { formatCurrency, todayISO, cn } from "@/lib/utils";
 import type { Transfer } from "@/lib/types";
@@ -12,6 +13,7 @@ import {
   ResetPasswordForm,
   GenerateInvoiceButton,
   ClientDetailsEditor,
+  ArchiveClientControl,
 } from "./client-actions";
 
 export default async function ClientDetailPage({
@@ -38,6 +40,7 @@ export default async function ClientDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeRefresher tables={["transfers", "clients"]} />
       <Link
         href="/admin"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted hover:text-primary"
@@ -78,6 +81,7 @@ export default async function ClientDetailPage({
         <div className="flex items-center gap-2">
           <StatusToggle clientId={client.id} status={client.status} />
           <GenerateInvoiceButton clientId={client.id} disabled={stats.creditPending <= 0} />
+          <ArchiveClientControl clientId={client.id} archivedAt={client.archived_at} />
         </div>
       </div>
 
@@ -109,7 +113,7 @@ export default async function ClientDetailPage({
 
       <Card>
         <CardHeader title="Transfer history" description="Search by lead name, filter by status or date range." />
-        <FilterableTransferTable transfers={transferList} />
+        <FilterableTransferTable transfers={transferList} showBillable adminDeletable />
       </Card>
     </div>
   );

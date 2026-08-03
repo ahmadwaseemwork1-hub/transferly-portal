@@ -1,6 +1,7 @@
 import type { Client, Invoice, Transfer } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintButton } from "./print-button";
+import { DownloadInvoiceButton } from "./download-invoice-button";
 
 export function InvoiceDocument({
   invoice, client, transfers,
@@ -11,10 +12,11 @@ export function InvoiceDocument({
 }) {
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="no-print mb-4 flex justify-end">
+      <div className="no-print mb-4 flex justify-end gap-2">
+        <DownloadInvoiceButton invoiceNumber={invoice.invoice_number} />
         <PrintButton />
       </div>
-      <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
+      <div id="invoice-document" className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
         <div className="flex items-start justify-between border-b border-border pb-6">
           <div>
             <p className="font-serif text-xl font-semibold text-primary">VOXPACT</p>

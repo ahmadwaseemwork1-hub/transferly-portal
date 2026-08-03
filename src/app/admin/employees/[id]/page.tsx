@@ -6,20 +6,24 @@ import { Card, CardHeader, Badge, StatCard } from "@/components/ui";
 import { cn, formatDate } from "@/lib/utils";
 import type { Employee, EmployeeUpload } from "@/lib/types";
 import { EmployeeActions } from "./client-actions";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: employee }, { data: uploads }] = await Promise.all([
+  const [{ data: employee }, { data: uploads }, { data: leads }] = await Promise.all([
     supabase.from("employees").select("*").eq("id", id).single(),
     supabase.from("employee_uploads").select("*").eq("employee_id", id).order("upload_date", { ascending: false }).limit(60),
+    // Never select `value` — admin's employee view shows PKR payable, not client dollar amounts.
+    supabase.from("transfers").select("transfer_date").eq("submitted_by_employee_id", id),
   ]);
 
   if (!employee) notFound();
 
   const emp = employee as Employee;
   const uploadList = (uploads ?? []) as EmployeeUpload[];
+  const leadDates = (leads ?? []).map((l) => l.transfer_date as string);
 
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -30,10 +34,18 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   const monthTotal = uploadList.filter(u => u.upload_date >= monthAgo).reduce((s, u) => s + u.transfer_count, 0);
   const allTime = uploadList.reduce((s, u) => s + u.transfer_count, 0);
 
+  const rate = emp.pkr_rate_per_transfer ?? 0;
+  const leadsToday = leadDates.filter((d) => d === today).length;
+  const leadsWeek = leadDates.filter((d) => d >= weekAgo).length;
+  const leadsMonth = leadDates.filter((d) => d >= monthAgo).length;
+  const leadsAllTime = leadDates.length;
+  const pkr = (n: number) => "Rs. " + new Intl.NumberFormat("en-PK", { maximumFractionDigits: 0 }).format(n * rate);
+
   const capPct = emp.daily_cap > 0 ? Math.min(100, Math.round((todayTotal / emp.daily_cap) * 100)) : 0;
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeRefresher tables={["employees", "employee_uploads", "transfers"]} />
       <Link href="/admin/employees" className="inline-flex w-fit items-center gap-1.5 text-sm text-muted hover:text-primary">
         <ArrowLeft className="h-4 w-4" /> Back to employees
       </Link>
@@ -78,6 +90,36 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         <StatCard label="This month" value={monthTotal} />
         <StatCard label="All time" value={allTime} />
       </div>
+
+      {/* PKR payable from real leads submitted (Submit Lead flow) */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-1">
+          <p className="font-semibold text-foreground">PKR payable</p>
+          <span className="text-xs text-muted">Rs. {rate.toLocaleString()} per lead submitted</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mt-4 lg:grid-cols-4">
+          <div>
+            <p className="text-xs text-muted">Today</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsToday)}</p>
+            <p className="text-xs text-muted">{leadsToday} lead{leadsToday !== 1 ? "s" : ""}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">This week</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsWeek)}</p>
+            <p className="text-xs text-muted">{leadsWeek} lead{leadsWeek !== 1 ? "s" : ""}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">This month</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsMonth)}</p>
+            <p className="text-xs text-muted">{leadsMonth} lead{leadsMonth !== 1 ? "s" : ""}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">All time</p>
+            <p className="text-xl font-bold text-foreground">{pkr(leadsAllTime)}</p>
+            <p className="text-xs text-muted">{leadsAllTime} lead{leadsAllTime !== 1 ? "s" : ""}</p>
+          </div>
+        </div>
+      </Card>
 
       <EmployeeActions employee={emp} />
 

@@ -10,11 +10,13 @@ export interface InvoiceDraft {
 
 /**
  * Builds an invoice draft from a client's accepted-but-not-yet-invoiced
- * transfers. Only transfers with status "accepted" and no invoice_id are
- * eligible — this is what "credit pending" means throughout the app.
+ * transfers. Only transfers with status "accepted", no invoice_id, and
+ * billable !== false are eligible — this is what "credit pending" means
+ * throughout the app. Transfers the client has flagged non-billable are
+ * excluded until they're switched back.
  */
 export function buildInvoiceDraft(transfers: Transfer[]): InvoiceDraft | null {
-  const eligible = transfers.filter((t) => t.status === "accepted" && !t.invoice_id);
+  const eligible = transfers.filter((t) => t.status === "accepted" && !t.invoice_id && t.billable !== false);
   if (eligible.length === 0) return null;
 
   const dates = eligible.map((t) => t.transfer_date).sort();

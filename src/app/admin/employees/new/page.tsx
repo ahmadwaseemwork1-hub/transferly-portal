@@ -9,7 +9,7 @@ import { Button, Card, CardHeader, Input, Label } from "@/components/ui";
 
 export default function NewEmployeePage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", daily_cap: "10", password: "", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", daily_cap: "10", pkr_rate_per_transfer: "0", password: "", notes: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +49,11 @@ export default function NewEmployeePage() {
               <Input type="number" required min="0" value={form.daily_cap} onChange={(e) => update("daily_cap", e.target.value)} placeholder="10" />
               <p className="mt-1 text-xs text-muted">Max transfers they can upload per day</p>
             </div>
+          </div>
+          <div>
+            <Label>PKR rate per transfer *</Label>
+            <Input type="number" required min="0" step="0.01" value={form.pkr_rate_per_transfer} onChange={(e) => update("pkr_rate_per_transfer", e.target.value)} placeholder="500" />
+            <p className="mt-1 text-xs text-muted">What this employee earns per lead submitted, paid regardless of accept/decline. They never see client dollar values.</p>
           </div>
           <div>
             <Label>Notes (optional)</Label>

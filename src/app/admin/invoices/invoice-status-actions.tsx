@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateInvoiceStatus } from "@/app/admin/actions";
+import { updateInvoiceStatus, sendInvoiceToClient } from "@/app/admin/actions";
 import { Button } from "@/components/ui";
 import { CheckCircle, Send, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,17 +16,30 @@ export function InvoiceStatusButton({
   const [status, setStatus] = useState(currentStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   const advance = () => {
-    const next =
-      status === "generated" ? "sent" : status === "sent" ? "paid" : null;
-    if (!next) return;
+    if (status === "generated") {
+      setError(null);
+      setNote(null);
+      startTransition(async () => {
+        const r = await sendInvoiceToClient(invoiceId);
+        if (r.ok) {
+          setStatus("sent");
+          setNote(r.data.emailed ? "Emailed to client." : "Marked sent — configure RESEND_API_KEY + RESEND_FROM_EMAIL to auto-email clients.");
+        } else {
+          setError(r.error);
+        }
+      });
+      return;
+    }
 
+    if (status !== "sent") return;
     setError(null);
     startTransition(async () => {
-      const r = await updateInvoiceStatus(invoiceId, next as "sent" | "paid");
+      const r = await updateInvoiceStatus(invoiceId, "paid");
       if (r.ok) {
-        setStatus(next);
+        setStatus("paid");
       } else {
         setError(r.error);
       }
@@ -69,10 +82,11 @@ export function InvoiceStatusButton({
         {isPending
           ? "Updating…"
           : status === "generated"
-          ? "Mark sent"
+          ? "Send to client"
           : "Mark paid"}
       </Button>
       {error && <p className="text-xs text-danger">{error}</p>}
+      {note && <p className="text-xs text-muted">{note}</p>}
     </div>
   );
 }

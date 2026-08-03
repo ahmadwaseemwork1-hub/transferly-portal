@@ -19,6 +19,15 @@ function makeTransfer(overrides: Partial<Transfer>): Transfer {
     responded_at: null,
     invoice_id: null,
     created_by: null,
+    dob: null,
+    address: null,
+    num_cars: null,
+    cars: null,
+    current_carrier: null,
+    home_owner: null,
+    submitted_by_employee_id: null,
+    billable: true,
+    billable_note: null,
     created_at: "2026-07-01T00:00:00Z",
     updated_at: "2026-07-01T00:00:00Z",
     ...overrides,
@@ -35,6 +44,16 @@ describe("buildInvoiceDraft", () => {
     ];
     const draft = buildInvoiceDraft(transfers);
     expect(draft).not.toBeNull();
+    expect(draft!.transferCount).toBe(1);
+    expect(draft!.totalAmount).toBe(50);
+  });
+
+  it("excludes transfers flagged non-billable", () => {
+    const transfers = [
+      makeTransfer({ status: "accepted", invoice_id: null, value: 50, billable: true }),
+      makeTransfer({ status: "accepted", invoice_id: null, value: 999, billable: false, billable_note: "Bad lead" }),
+    ];
+    const draft = buildInvoiceDraft(transfers);
     expect(draft!.transferCount).toBe(1);
     expect(draft!.totalAmount).toBe(50);
   });

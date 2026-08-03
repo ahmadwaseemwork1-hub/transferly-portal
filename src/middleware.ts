@@ -17,7 +17,10 @@ export function middleware(request: NextRequest) {
 
   // Supabase stores the session cookie as:  sb-<project-ref>-auth-token
   // Large JWTs are split: sb-<ref>-auth-token.0, sb-<ref>-auth-token.1, …
-  const PROJECT_REF = "lfogwnkjherbjtysnzhx";
+  // Derive the ref from the configured Supabase URL so this never drifts out
+  // of sync with whichever project this deployment actually points at.
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const PROJECT_REF = SUPABASE_URL.match(/^https?:\/\/([^.]+)\./)?.[1] ?? "lfogwnkjherbjtysnzhx";
   const AUTH_COOKIE_PREFIX = `sb-${PROJECT_REF}-auth-token`;
 
   const hasSession = request.cookies

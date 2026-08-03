@@ -5,14 +5,16 @@ import { computeStats } from "@/lib/stats";
 import { formatCurrency, todayISO, cn } from "@/lib/utils";
 import type { Client, Transfer } from "@/lib/types";
 import { Plus } from "lucide-react";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 
 export default async function AdminClientsPage() {
   const supabase = await createClient();
   const today = todayISO();
 
-  const [{ data: clients }, { data: transfers }] = await Promise.all([
-    supabase.from("clients").select("*").order("business_name"),
+  const [{ data: clients }, { data: transfers }, { count: archivedCount }] = await Promise.all([
+    supabase.from("clients").select("*").is("archived_at", null).order("business_name"),
     supabase.from("transfers").select("*"),
+    supabase.from("clients").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
   ]);
 
   const clientList = (clients ?? []) as Client[];
@@ -21,9 +23,10 @@ export default async function AdminClientsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeRefresher tables={["clients", "transfers"]} />
       <HeroBanner
         title="Clients"
-        subtitle={`${activeCount} active client${activeCount !== 1 ? "s" : ""} · ${clientList.length} total`}
+        subtitle={`${activeCount} active client${activeCount !== 1 ? "s" : ""} · ${clientList.length} total${archivedCount ? ` · ${archivedCount} archived` : ""}`}
         badge="CRM"
         action={
           <Link href="/admin/clients/new">

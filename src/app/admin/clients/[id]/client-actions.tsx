@@ -7,6 +7,8 @@ import {
   resetClientPassword,
   generateInvoiceForClient,
   updateClientDetails,
+  archiveClient,
+  restoreClient,
 } from "@/app/admin/actions";
 import { Button, Input, Label, Select } from "@/components/ui";
 
@@ -159,6 +161,52 @@ export function ResetPasswordForm({ clientId }: { clientId: string }) {
         {loading ? "Updating..." : "Reset password"}
       </Button>
     </form>
+  );
+}
+
+export function ArchiveClientControl({
+  clientId,
+  archivedAt,
+}: {
+  clientId: string;
+  archivedAt: string | null;
+}) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleToggle() {
+    setLoading(true);
+    if (archivedAt) {
+      await restoreClient(clientId);
+    } else {
+      await archiveClient(clientId);
+    }
+    setLoading(false);
+    setConfirming(false);
+    router.refresh();
+  }
+
+  if (!confirming) {
+    return (
+      <Button variant="danger" size="sm" onClick={() => setConfirming(true)} disabled={loading}>
+        {archivedAt ? "Restore client" : "Archive client"}
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-foreground">
+        {archivedAt ? "Restore this client?" : "Archive? They can't log in until restored."}
+      </span>
+      <Button variant="danger" size="sm" onClick={handleToggle} disabled={loading}>
+        {loading ? "Working..." : "Confirm"}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={loading}>
+        Cancel
+      </Button>
+    </div>
   );
 }
 

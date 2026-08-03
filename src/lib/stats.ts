@@ -76,7 +76,7 @@ export function computeStats(
       if (t.status === "accepted") monthlyAcceptedValue += Number(t.value) || 0;
     }
 
-    if (t.status === "accepted" && !t.invoice_id) {
+    if (t.status === "accepted" && !t.invoice_id && t.billable !== false) {
       creditPending += Number(t.value) || 0;
     }
   }
@@ -111,7 +111,7 @@ export function computeAdminOverview(
       else if (t.status === "declined") declinedToday++;
       else pendingToday++;
     }
-    if (t.status === "accepted" && !t.invoice_id) {
+    if (t.status === "accepted" && !t.invoice_id && t.billable !== false) {
       totalCreditPending += Number(t.value) || 0;
     }
   }

@@ -4,6 +4,7 @@ import { computeStats } from "@/lib/stats";
 import { formatCurrency, todayISO } from "@/lib/utils";
 import type { Transfer } from "@/lib/types";
 import { RealtimePendingTransfers } from "@/components/realtime-pending-transfers";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 
 export default async function ClientDashboardPage() {
   const { supabase, profile } = await requireClient();
@@ -25,6 +26,7 @@ export default async function ClientDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeRefresher tables={["transfers"]} />
       <HeroBanner
         title={`Welcome back${profile.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}!`}
         subtitle={

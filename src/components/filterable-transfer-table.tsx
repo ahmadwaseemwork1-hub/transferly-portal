@@ -1,22 +1,72 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { Transfer } from "@/lib/types";
-import { Badge } from "@/components/ui";
+import { Badge, Button } from "@/components/ui";
 import { formatCurrency, formatDate, statusBadgeClasses, cn } from "@/lib/utils";
-import { Search, Filter, X } from "lucide-react";
+import { Search, Filter, X, ChevronDown, Trash2 } from "lucide-react";
+import { LeadDetails } from "@/components/lead-details";
+import { BillableToggle } from "@/components/billable-toggle";
+import { deleteTransfer } from "@/app/admin/actions";
 
 const STATUS_OPTIONS = ["all", "pending", "accepted", "declined"] as const;
+
+function DeleteLeadButton({ transferId }: { transferId: string }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    setLoading(true);
+    setError(null);
+    const r = await deleteTransfer(transferId);
+    setLoading(false);
+    if (!r.ok) { setError(r.error); return; }
+    router.refresh();
+  }
+
+  if (!confirming) {
+    return (
+      <Button variant="danger" size="sm" onClick={() => setConfirming(true)}>
+        <Trash2 className="h-3.5 w-3.5" /> Delete lead
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-foreground">Delete this lead permanently?</span>
+        <Button variant="danger" size="sm" onClick={handleDelete} disabled={loading}>
+          {loading ? "Deleting..." : "Confirm"}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={loading}>
+          Cancel
+        </Button>
+      </div>
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
 
 export function FilterableTransferTable({
   transfers,
   showClient,
   clientNames,
+  showBillable,
+  adminDeletable,
 }: {
   transfers: Transfer[];
   showClient?: boolean;
   clientNames?: Record<string, string>;
+  /** Show an editable billable/non-billable control on accepted transfers. */
+  showBillable?: boolean;
+  /** Show a delete button (in the expanded row) for leads not yet invoiced. */
+  adminDeletable?: boolean;
 }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -188,6 +238,7 @@ export function FilterableTransferTable({
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
+                <th className="w-8 px-2 py-3" />
                 <th className="px-6 py-3 font-medium">Date</th>
                 {showClient && <th className="px-4 py-3 font-medium">Client</th>}
                 <th className="px-4 py-3 font-medium">Lead</th>
@@ -195,43 +246,74 @@ export function FilterableTransferTable({
                 <th className="px-4 py-3 font-medium">Insurance type</th>
                 <th className="px-4 py-3 font-medium">Value</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                {showBillable && <th className="px-4 py-3 font-medium">Billable</th>}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => (
-                <tr
-                  key={t.id}
-                  className="border-b border-border last:border-0 hover:bg-neutral-50/50 transition-colors"
-                >
-                  <td className="whitespace-nowrap px-6 py-3 text-foreground">
-                    {formatDate(t.transfer_date)}
-                    {t.transfer_time && (
-                      <span className="ml-1 text-xs text-muted">{t.transfer_time}</span>
+              {filtered.map((t) => {
+                const isExpanded = expanded === t.id;
+                const colSpan = 7 + (showClient ? 1 : 0) + (showBillable ? 1 : 0);
+                return (
+                  <Fragment key={t.id}>
+                    <tr
+                      onClick={() => setExpanded((cur) => (cur === t.id ? null : t.id))}
+                      className="cursor-pointer border-b border-border last:border-0 hover:bg-neutral-50/50 transition-colors"
+                    >
+                      <td className="px-2 py-3 text-muted">
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-3 text-foreground">
+                        {formatDate(t.transfer_date)}
+                        {t.transfer_time && (
+                          <span className="ml-1 text-xs text-muted">{t.transfer_time}</span>
+                        )}
+                      </td>
+                      {showClient && (
+                        <td className="whitespace-nowrap px-4 py-3 text-foreground">
+                          {clientNames?.[t.client_id] ?? "—"}
+                        </td>
+                      )}
+                      <td className="whitespace-nowrap px-4 py-3 text-foreground">
+                        {t.lead_name ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted">{t.state ?? "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted">
+                        {t.insurance_type ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
+                        {formatCurrency(t.value)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <Badge className={cn(statusBadgeClasses(t.status))}>{t.status}</Badge>
+                        {t.status === "declined" && t.decline_reason && (
+                          <p className="mt-1 text-xs text-muted">{t.decline_reason}</p>
+                        )}
+                      </td>
+                      {showBillable && (
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {t.status === "accepted" ? (
+                            <BillableToggle transferId={t.id} billable={t.billable} note={t.billable_note} />
+                          ) : (
+                            <span className="text-xs text-muted">—</span>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                    {isExpanded && (
+                      <tr className="border-b border-border bg-background/50">
+                        <td colSpan={colSpan} className="px-6 py-4">
+                          <LeadDetails transfer={t} />
+                          {adminDeletable && !t.invoice_id && (
+                            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                              <DeleteLeadButton transferId={t.id} />
+                            </div>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  {showClient && (
-                    <td className="whitespace-nowrap px-4 py-3 text-foreground">
-                      {clientNames?.[t.client_id] ?? "—"}
-                    </td>
-                  )}
-                  <td className="whitespace-nowrap px-4 py-3 text-foreground">
-                    {t.lead_name ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted">{t.state ?? "—"}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted">
-                    {t.insurance_type ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
-                    {formatCurrency(t.value)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <Badge className={cn(statusBadgeClasses(t.status))}>{t.status}</Badge>
-                    {t.status === "declined" && t.decline_reason && (
-                      <p className="mt-1 text-xs text-muted">{t.decline_reason}</p>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

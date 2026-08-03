@@ -6,6 +6,8 @@ import { OverviewCharts } from "@/components/overview-charts";
 import { PrintButton } from "@/components/print-button";
 import { ClearDataButton } from "@/components/clear-data-button";
 import { RealtimeEmployeeCaps } from "@/components/realtime-employee-caps";
+import { RealtimeDuplicateAlerts } from "@/components/realtime-duplicate-alerts";
+import { RealtimeRefresher } from "@/components/realtime-refresher";
 import { formatCurrency, formatCurrencyPKR, todayISO } from "@/lib/utils";
 import { getPkrRate } from "@/lib/pkr-rate";
 import { parseISODate } from "@/lib/stats";
@@ -133,6 +135,7 @@ export default async function AdminOverviewPage({
 
   const clientList = (clients ?? []) as Pick<Client, "id" | "business_name">[];
   const empList = (employees ?? []) as Employee[];
+  const employeeNames = Object.fromEntries(empList.map((e) => [e.id, e.name]));
   const uploadList = (uploads ?? []) as Pick<EmployeeUpload, "employee_id" | "transfer_count" | "upload_date">[];
   const employeeCapData = empList.map((e) => ({
     id: e.id,
@@ -159,6 +162,10 @@ export default async function AdminOverviewPage({
 
   return (
     <div className="flex flex-col gap-6 print:gap-4">
+      <div className="print:hidden">
+        <RealtimeRefresher tables={["transfers", "employee_uploads", "clients", "employees"]} />
+        <RealtimeDuplicateAlerts employeeNames={employeeNames} clientNames={clientNames} />
+      </div>
 
       {/* Hero banner */}
       <HeroBanner
