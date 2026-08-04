@@ -12,15 +12,6 @@ export function formatCurrency(value: number): string {
   }).format(value || 0);
 }
 
-/** Format a USD value as PKR using the provided exchange rate. */
-export function formatCurrencyPKR(valueUSD: number, pkrPerUsd: number): string {
-  const pkrAmount = (valueUSD || 0) * pkrPerUsd;
-  return "₨ " + new Intl.NumberFormat("en-PK", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(pkrAmount);
-}
-
 export function formatDate(dateStr: string): string {
   // dateStr is a plain YYYY-MM-DD date (no time component, no timezone math).
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -47,6 +38,17 @@ export function statusBadgeClasses(status: string): string {
     case "declined":
       return "bg-danger-soft text-danger";
     case "pending":
+    default:
+      return "bg-warning-soft text-warning";
+  }
+}
+
+export function billingBadgeClasses(status: string | null): string {
+  switch (status) {
+    case "billable":
+      return "bg-success-soft text-success";
+    case "refund":
+      return "bg-danger-soft text-danger";
     default:
       return "bg-warning-soft text-warning";
   }

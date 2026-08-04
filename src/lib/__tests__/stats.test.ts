@@ -19,17 +19,26 @@ function makeTransfer(overrides: Partial<Transfer>): Transfer {
     responded_at: null,
     invoice_id: null,
     created_by: null,
-    dob: null,
-    address: null,
-    num_cars: null,
-    cars: null,
-    current_carrier: null,
-    home_owner: null,
-    submitted_by_employee_id: null,
-    billable: true,
-    billable_note: null,
     created_at: "2026-07-01T00:00:00Z",
     updated_at: "2026-07-01T00:00:00Z",
+    date_of_birth: null,
+    address: null,
+    zip_code: null,
+    home_status: null,
+    vehicle_count: null,
+    vehicles: null,
+    current_carrier: null,
+    policy_term: null,
+    billing_status: null,
+    billing_decided_at: null,
+    billing_decided_by: null,
+    email: null,
+    city: null,
+    lead_extra: [],
+    submitted_by: null,
+    employee_approved: false,
+    employee_approved_at: null,
+    employee_approved_by: null,
     ...overrides,
   };
 }
@@ -79,10 +88,12 @@ describe("computeStats", () => {
     expect(stats.monthlyCount).toBe(2);
   });
 
-  it("computes credit pending as accepted + not invoiced only", () => {
+  it("computes credit pending as billable + not invoiced only", () => {
     const transfers = [
-      makeTransfer({ status: "accepted", invoice_id: null, value: 100 }),
-      makeTransfer({ status: "accepted", invoice_id: "inv-1", value: 200 }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, value: 100 }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: "inv-1", value: 200 }),
+      makeTransfer({ status: "accepted", billing_status: "refund", invoice_id: null, value: 500 }),
+      makeTransfer({ status: "accepted", billing_status: null, invoice_id: null, value: 600 }),
       makeTransfer({ status: "declined", invoice_id: null, value: 300 }),
       makeTransfer({ status: "pending", invoice_id: null, value: 400 }),
     ];
@@ -116,9 +127,9 @@ describe("computeAdminOverview", () => {
   it("aggregates across multiple clients", () => {
     const today = "2026-07-01";
     const transfers = [
-      makeTransfer({ client_id: "a", transfer_date: today, status: "accepted", value: 50 }),
+      makeTransfer({ client_id: "a", transfer_date: today, status: "accepted", billing_status: "billable", value: 50 }),
       makeTransfer({ client_id: "b", transfer_date: today, status: "pending", value: 60 }),
-      makeTransfer({ client_id: "a", transfer_date: "2026-06-01", status: "accepted", value: 999 }),
+      makeTransfer({ client_id: "a", transfer_date: "2026-06-01", status: "accepted", billing_status: "billable", value: 999 }),
     ];
     const overview = computeAdminOverview(transfers, today);
     expect(overview.totalToday).toBe(2);

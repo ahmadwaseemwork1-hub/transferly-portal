@@ -1,38 +1,60 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * Invisible helper that re-fetches the current server component whenever any
- * row in the given tables changes, so admin/client screens stay live without
- * a manual refresh. Debounced so a burst of changes only triggers one refresh.
+ * Subscribes to Postgres changes on a table (optionally filtered to one
+ * column/value) and refreshes the current Server Component tree whenever a
+ * row changes. This is what makes a lead land on the client's (or
+ * employee's) screen the instant it's submitted, without a manual reload.
+ *
+ * Renders nothing — it's a side-effect-only component, mounted once per
+ * layout so every page under it stays live. Pass no filter to subscribe to
+ * the whole table (used for the admin views).
  */
-export function RealtimeRefresher({ tables }: { tables: string[] }) {
+export function RealtimeRefresher({
+  table,
+  filterColumn,
+  filterValue,
+}: {
+  table: string;
+  filterColumn?: string;
+  filterValue?: string;
+}) {
   const router = useRouter();
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasFilter = Boolean(filterColumn && filterValue);
 
   useEffect(() => {
+    if (filterColumn && !filterValue) return;
     const supabase = createClient();
-    const channel = supabase.channel(`refresher-${tables.join("-")}`);
+    const channelName = hasFilter
+      ? `realtime-${table}-${filterColumn}-${filterValue}`
+      : `realtime-${table}-all`;
 
-    for (const table of tables) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table }, () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => router.refresh(), 400);
-      });
-    }
-
-    channel.subscribe();
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        hasFilter
+          ? {
+              event: "*",
+              schema: "public",
+              table,
+              filter: `${filterColumn}=eq.${filterValue}`,
+            }
+          : { event: "*", schema: "public", table },
+        () => {
+          router.refresh();
+        }
+      )
+      .subscribe();
 
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       supabase.removeChannel(channel);
     };
-    // Depend on the joined string, not the array reference, since callers
-    // typically pass a new array literal on every render.
-  }, [router, tables.join(",")]);
+  }, [table, filterColumn, filterValue, hasFilter, router]);
 
   return null;
 }

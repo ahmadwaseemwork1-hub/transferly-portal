@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { respondToTransfer } from "@/app/client/actions";
+import { respondToTransfer, setTransferBilling, toggleCampaignStatus } from "@/app/client/actions";
 import { Button, Card, Textarea } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { LeadDetails } from "@/components/lead-details";
 import type { Transfer } from "@/lib/types";
 
 const DECLINE_REASONS = [
@@ -58,14 +57,19 @@ export function PendingTransferCard({ transfer }: { transfer: Transfer }) {
   return (
     <Card className="p-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted">
-          {formatDate(transfer.transfer_date)}
-          {transfer.transfer_time && ` · ${transfer.transfer_time}`}
-        </p>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">
+            {formatDate(transfer.transfer_date)}
+            {transfer.transfer_time && ` · ${transfer.transfer_time}`}
+          </p>
+          <p className="mt-1 font-semibold text-foreground">
+            {transfer.lead_name ?? "Unnamed lead"}
+          </p>
+          <p className="text-sm text-muted">
+            {transfer.state ?? "—"} · {transfer.insurance_type ?? "—"} · {transfer.phone ?? "—"}
+          </p>
+        </div>
         <p className="text-lg font-semibold text-primary">{formatCurrency(transfer.value)}</p>
-      </div>
-      <div className="mt-3 rounded-lg bg-background/60 p-3">
-        <LeadDetails transfer={transfer} />
       </div>
 
       {!showDecline ? (
@@ -138,5 +142,89 @@ export function PendingTransferCard({ transfer }: { transfer: Transfer }) {
       )}
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </Card>
+  );
+}
+
+export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState<"billable" | "refund" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function decide(status: "billable" | "refund") {
+    setLoading(status);
+    setError(null);
+    const result = await setTransferBilling(transfer.id, status);
+    setLoading(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">
+            {formatDate(transfer.transfer_date)}
+            {transfer.transfer_time && ` · ${transfer.transfer_time}`}
+          </p>
+          <p className="mt-1 font-semibold text-foreground">
+            {transfer.lead_name ?? "Unnamed lead"}
+          </p>
+          <p className="text-sm text-muted">
+            {transfer.state ?? "—"} · {transfer.insurance_type ?? "—"} · {transfer.phone ?? "—"}
+          </p>
+          <p className="mt-1 text-xs text-muted">Call accepted — mark the outcome once it's ended.</p>
+        </div>
+        <p className="text-lg font-semibold text-primary">{formatCurrency(transfer.value)}</p>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="success" size="sm" onClick={() => decide("billable")} disabled={loading !== null}>
+          <CheckCircle2 className="h-4 w-4" />
+          {loading === "billable" ? "Saving..." : "Billable"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => decide("refund")} disabled={loading !== null}>
+          <XCircle className="h-4 w-4" />
+          {loading === "refund" ? "Saving..." : "Refund"}
+        </Button>
+      </div>
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </Card>
+  );
+}
+
+export function CampaignToggle({ campaignStatus }: { campaignStatus: "active" | "paused" }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  async function toggle() {
+    setLoading(true);
+    await toggleCampaignStatus(campaignStatus === "active" ? "paused" : "active");
+    setLoading(false);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+      <div>
+        <p className="text-sm font-medium text-foreground">Campaign status</p>
+        <p className="text-xs text-muted">
+          {campaignStatus === "active"
+            ? "Active — employees can send you calls right now."
+            : "Paused — employees are told you're not receiving calls."}
+        </p>
+      </div>
+      <Button
+        variant={campaignStatus === "active" ? "outline" : "success"}
+        size="sm"
+        onClick={toggle}
+        disabled={loading}
+        className="ml-auto"
+      >
+        {loading ? "Saving..." : campaignStatus === "active" ? "Pause campaign" : "Resume campaign"}
+      </Button>
+    </div>
   );
 }

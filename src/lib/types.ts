@@ -1,9 +1,10 @@
 export type Role = "admin" | "client" | "employee";
 
 export type TransferStatus = "pending" | "accepted" | "declined";
+export type BillingStatus = "billable" | "refund";
 
 export type ClientStatus = "active" | "paused";
-export type EmployeeStatus = "active" | "paused";
+export type CampaignStatus = "active" | "paused";
 
 export interface Client {
   id: string;
@@ -14,42 +15,16 @@ export interface Client {
   price_per_transfer: number | null;
   status: ClientStatus;
   notes: string | null;
-  state: string | null;
-  requirements: string | null;
-  archived_at: string | null;
+  // Operational fields shown on the admin Clients page, editable any time.
+  campaign_status: CampaignStatus;
+  schedule_from: string | null; // "HH:MM:SS"
+  schedule_to: string | null;
+  paused_until: string | null; // ISO timestamp
+  daily_cap: number | null;
+  cooloff_minutes: number | null;
+  accepted_states: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  daily_cap: number;
-  pkr_rate_per_transfer: number;
-  status: EmployeeStatus;
-  notes: string | null;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DuplicateLeadAttempt {
-  id: string;
-  client_id: string | null;
-  employee_id: string | null;
-  phone: string | null;
-  attempted_at: string;
-}
-
-export interface EmployeeUpload {
-  id: string;
-  employee_id: string;
-  upload_date: string;
-  transfer_count: number;
-  notes: string | null;
-  created_by: string | null;
-  created_at: string;
 }
 
 export interface Profile {
@@ -61,10 +36,46 @@ export interface Profile {
   created_at: string;
 }
 
+export type EmploymentType = "onsite" | "hybrid" | "remote" | "part_time";
+
+export interface BonusTier {
+  min_transfers: number;
+  flat_amount: number;
+}
+
+export interface Employee {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  employment_type: EmploymentType;
+  status: "active" | "inactive";
+  base_rate_pkr: number;
+  bonus_tiers: BonusTier[];
+  daily_cap: number | null;
+  start_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeClientAssignment {
+  id: string;
+  employee_id: string;
+  client_id: string;
+  created_at: string;
+}
+
+/** A labeled raw value from an ambiguous paste column — shown editable, never dropped. */
+export interface LeadExtraField {
+  label: string;
+  value: string;
+}
+
 export interface Transfer {
   id: string;
   client_id: string;
-  transfer_date: string;
+  transfer_date: string; // YYYY-MM-DD
   transfer_time: string | null;
   lead_name: string | null;
   phone: string | null;
@@ -75,45 +86,33 @@ export interface Transfer {
   status: TransferStatus;
   decline_reason: string | null;
   responded_at: string | null;
+  // Two-stage outcome after acceptance: null while the call is in progress /
+  // not yet resolved, then "billable" or "refund" once decided.
+  billing_status: BillingStatus | null;
+  billing_decided_at: string | null;
+  billing_decided_by: string | null;
   invoice_id: string | null;
   created_by: string | null;
-  dob: string | null;
-  address: string | null;
-  num_cars: number | null;
-  cars: string | null;
-  current_carrier: string | null;
-  home_owner: boolean | null;
-  submitted_by_employee_id: string | null;
-  billable: boolean;
-  billable_note: string | null;
   created_at: string;
   updated_at: string;
+  // Lead-detail fields captured from the paste-parser (nullable — CSV-uploaded
+  // transfers won't have these).
+  date_of_birth: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  zip_code: string | null;
+  home_status: string | null;
+  vehicle_count: number | null;
+  vehicles: string | null;
+  current_carrier: string | null;
+  policy_term: string | null;
+  lead_extra: LeadExtraField[];
+  submitted_by: string | null;
+  employee_approved: boolean;
+  employee_approved_at: string | null;
+  employee_approved_by: string | null;
 }
-
-/** Fields an employee must fill in before a lead can be submitted to a client. */
-export const LEAD_DETAIL_FIELDS = [
-  "lead_name",
-  "phone",
-  "dob",
-  "address",
-  "num_cars",
-  "cars",
-  "current_carrier",
-  "home_owner",
-] as const;
-
-export type LeadDetailField = (typeof LEAD_DETAIL_FIELDS)[number];
-
-export const LEAD_DETAIL_FIELD_LABELS: Record<LeadDetailField, string> = {
-  lead_name: "Name",
-  phone: "Phone",
-  dob: "Date of birth",
-  address: "Address",
-  num_cars: "Number of cars",
-  cars: "Car(s)",
-  current_carrier: "Current carrier",
-  home_owner: "Home owner",
-};
 
 export interface Invoice {
   id: string;
@@ -128,6 +127,7 @@ export interface Invoice {
   created_at: string;
 }
 
+/** The canonical set of fields the app understands from an uploaded CSV. */
 export const TRANSFER_FIELDS = [
   "client",
   "transfer_date",
@@ -158,3 +158,42 @@ export const REQUIRED_TRANSFER_FIELDS: TransferField[] = [
   "client",
   "transfer_date",
 ];
+
+export type Currency = "PKR" | "USD";
+
+export interface ExchangeRate {
+  id: string;
+  rate_date: string;
+  pkr_per_usd: number;
+  entered_by: string | null;
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  category: string;
+  description: string | null;
+  amount: number;
+  currency: Currency;
+  expense_date: string;
+  recurring: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type Platform = "payoneer" | "paypal" | "bank_transfer" | "other";
+
+export interface RevenueEntry {
+  id: string;
+  client_id: string | null;
+  platform: Platform;
+  gross_amount: number;
+  fee_amount: number;
+  tax_amount: number;
+  net_amount: number;
+  currency: Currency;
+  received_date: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}

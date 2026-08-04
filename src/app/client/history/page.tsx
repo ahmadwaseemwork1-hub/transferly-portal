@@ -1,7 +1,6 @@
 import { requireClient } from "@/lib/auth";
 import { Card, CardHeader } from "@/components/ui";
-import { FilterableTransferTable } from "@/components/filterable-transfer-table";
-import { RealtimeRefresher } from "@/components/realtime-refresher";
+import { TransferTable } from "@/components/transfer-table";
 import type { Transfer } from "@/lib/types";
 
 export default async function ClientHistoryPage() {
@@ -15,14 +14,13 @@ export default async function ClientHistoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <RealtimeRefresher tables={["transfers"]} />
       <div>
         <h1 className="font-serif text-2xl font-semibold text-foreground">History</h1>
         <p className="mt-1 text-sm text-muted">Every transfer you've ever received.</p>
       </div>
       <Card>
-        <CardHeader title="All transfers" description="Search by lead name, filter by status or date range." />
-        <FilterableTransferTable transfers={(transfers ?? []) as Transfer[]} showBillable />
+        <CardHeader title="All transfers" />
+        <TransferTable transfers={(transfers ?? []) as Transfer[]} />
       </Card>
     </div>
   );

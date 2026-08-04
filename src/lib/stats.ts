@@ -37,10 +37,14 @@ export interface ClientStats {
   dailyAccepted: number;
   dailyDeclined: number;
   dailyPending: number;
+  dailyBillable: number;
+  dailyRefund: number;
+  dailyAwaitingBillingDecision: number;
   weeklyCount: number;
   monthlyCount: number;
+  /** Sum of value for accepted-but-not-yet-invoiced transfers marked billable. */
   creditPending: number;
-  monthlyAcceptedValue: number;
+  monthlyBillableValue: number;
 }
 
 export function computeStats(
@@ -54,10 +58,13 @@ export function computeStats(
   let dailyAccepted = 0;
   let dailyDeclined = 0;
   let dailyPending = 0;
+  let dailyBillable = 0;
+  let dailyRefund = 0;
+  let dailyAwaitingBillingDecision = 0;
   let weeklyCount = 0;
   let monthlyCount = 0;
   let creditPending = 0;
-  let monthlyAcceptedValue = 0;
+  let monthlyBillableValue = 0;
 
   for (const t of transfers) {
     const isToday = t.transfer_date === referenceDateISO;
@@ -66,17 +73,21 @@ export function computeStats(
 
     if (isToday) {
       dailyCount++;
-      if (t.status === "accepted") dailyAccepted++;
-      else if (t.status === "declined") dailyDeclined++;
+      if (t.status === "accepted") {
+        dailyAccepted++;
+        if (t.billing_status === "billable") dailyBillable++;
+        else if (t.billing_status === "refund") dailyRefund++;
+        else dailyAwaitingBillingDecision++;
+      } else if (t.status === "declined") dailyDeclined++;
       else dailyPending++;
     }
     if (isThisWeek) weeklyCount++;
     if (isThisMonth) {
       monthlyCount++;
-      if (t.status === "accepted") monthlyAcceptedValue += Number(t.value) || 0;
+      if (t.billing_status === "billable") monthlyBillableValue += Number(t.value) || 0;
     }
 
-    if (t.status === "accepted" && !t.invoice_id && t.billable !== false) {
+    if (t.billing_status === "billable" && !t.invoice_id) {
       creditPending += Number(t.value) || 0;
     }
   }
@@ -86,10 +97,13 @@ export function computeStats(
     dailyAccepted,
     dailyDeclined,
     dailyPending,
+    dailyBillable,
+    dailyRefund,
+    dailyAwaitingBillingDecision,
     weeklyCount,
     monthlyCount,
     creditPending,
-    monthlyAcceptedValue,
+    monthlyBillableValue,
   };
 }
 
@@ -102,19 +116,32 @@ export function computeAdminOverview(
   let acceptedToday = 0;
   let pendingToday = 0;
   let declinedToday = 0;
+  let billableToday = 0;
+  let refundToday = 0;
   let totalCreditPending = 0;
 
   for (const t of transfers) {
     if (t.transfer_date === referenceDateISO) {
       totalToday++;
-      if (t.status === "accepted") acceptedToday++;
-      else if (t.status === "declined") declinedToday++;
+      if (t.status === "accepted") {
+        acceptedToday++;
+        if (t.billing_status === "billable") billableToday++;
+        else if (t.billing_status === "refund") refundToday++;
+      } else if (t.status === "declined") declinedToday++;
       else pendingToday++;
     }
-    if (t.status === "accepted" && !t.invoice_id && t.billable !== false) {
+    if (t.billing_status === "billable" && !t.invoice_id) {
       totalCreditPending += Number(t.value) || 0;
     }
   }
 
-  return { totalToday, acceptedToday, pendingToday, declinedToday, totalCreditPending };
+  return {
+    totalToday,
+    acceptedToday,
+    pendingToday,
+    declinedToday,
+    billableToday,
+    refundToday,
+    totalCreditPending,
+  };
 }

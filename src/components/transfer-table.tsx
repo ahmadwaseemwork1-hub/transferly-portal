@@ -1,15 +1,17 @@
 import type { Transfer } from "@/lib/types";
 import { Badge } from "@/components/ui";
-import { formatCurrency, formatDate, statusBadgeClasses, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, statusBadgeClasses, billingBadgeClasses, cn } from "@/lib/utils";
 
 export function TransferTable({
   transfers,
   showClient,
   clientNames,
+  showApproval,
 }: {
   transfers: Transfer[];
   showClient?: boolean;
   clientNames?: Record<string, string>;
+  showApproval?: boolean;
 }) {
   if (transfers.length === 0) {
     return (
@@ -21,7 +23,7 @@ export function TransferTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
             <th className="px-6 py-3 font-medium">Date</th>
@@ -31,6 +33,8 @@ export function TransferTable({
             <th className="px-4 py-3 font-medium">Insurance type</th>
             <th className="px-4 py-3 font-medium">Value</th>
             <th className="px-4 py-3 font-medium">Status</th>
+            <th className="px-4 py-3 font-medium">Billing</th>
+            {showApproval && <th className="px-4 py-3 font-medium">Payroll</th>}
           </tr>
         </thead>
         <tbody>
@@ -63,6 +67,28 @@ export function TransferTable({
                   <p className="mt-1 text-xs text-muted">{t.decline_reason}</p>
                 )}
               </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                {t.status === "accepted" ? (
+                  <Badge className={cn(billingBadgeClasses(t.billing_status))}>
+                    {t.billing_status ?? "awaiting"}
+                  </Badge>
+                ) : (
+                  <span className="text-muted">—</span>
+                )}
+              </td>
+              {showApproval && (
+                <td className="whitespace-nowrap px-4 py-3">
+                  <Badge
+                    className={cn(
+                      t.employee_approved
+                        ? "bg-success-soft text-success"
+                        : "bg-warning-soft text-warning"
+                    )}
+                  >
+                    {t.employee_approved ? "Approved" : "Pending"}
+                  </Badge>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

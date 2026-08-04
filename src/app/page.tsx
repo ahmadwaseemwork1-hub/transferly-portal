@@ -13,7 +13,10 @@ export default async function HomePage() {
     .from("profiles")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  redirect(profile?.role === "admin" ? "/admin" : "/client");
+  if (profile?.role === "admin") redirect("/admin");
+  if (profile?.role === "employee") redirect("/employee");
+  if (profile?.role === "client") redirect("/client");
+  redirect("/login");
 }

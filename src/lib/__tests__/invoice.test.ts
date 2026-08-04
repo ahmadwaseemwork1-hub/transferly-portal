@@ -19,26 +19,37 @@ function makeTransfer(overrides: Partial<Transfer>): Transfer {
     responded_at: null,
     invoice_id: null,
     created_by: null,
-    dob: null,
-    address: null,
-    num_cars: null,
-    cars: null,
-    current_carrier: null,
-    home_owner: null,
-    submitted_by_employee_id: null,
-    billable: true,
-    billable_note: null,
     created_at: "2026-07-01T00:00:00Z",
     updated_at: "2026-07-01T00:00:00Z",
+    date_of_birth: null,
+    address: null,
+    zip_code: null,
+    home_status: null,
+    vehicle_count: null,
+    vehicles: null,
+    current_carrier: null,
+    policy_term: null,
+    billing_status: null,
+    billing_decided_at: null,
+    billing_decided_by: null,
+    email: null,
+    city: null,
+    lead_extra: [],
+    submitted_by: null,
+    employee_approved: false,
+    employee_approved_at: null,
+    employee_approved_by: null,
     ...overrides,
   };
 }
 
 describe("buildInvoiceDraft", () => {
-  it("only includes accepted, uninvoiced transfers", () => {
+  it("only includes billable, uninvoiced transfers", () => {
     const transfers = [
-      makeTransfer({ status: "accepted", invoice_id: null, value: 50 }),
-      makeTransfer({ status: "accepted", invoice_id: "already-billed", value: 999 }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, value: 50 }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: "already-billed", value: 999 }),
+      makeTransfer({ status: "accepted", billing_status: "refund", invoice_id: null, value: 999 }),
+      makeTransfer({ status: "accepted", billing_status: null, invoice_id: null, value: 999 }),
       makeTransfer({ status: "declined", invoice_id: null, value: 999 }),
       makeTransfer({ status: "pending", invoice_id: null, value: 999 }),
     ];
@@ -48,26 +59,21 @@ describe("buildInvoiceDraft", () => {
     expect(draft!.totalAmount).toBe(50);
   });
 
-  it("excludes transfers flagged non-billable", () => {
-    const transfers = [
-      makeTransfer({ status: "accepted", invoice_id: null, value: 50, billable: true }),
-      makeTransfer({ status: "accepted", invoice_id: null, value: 999, billable: false, billable_note: "Bad lead" }),
-    ];
-    const draft = buildInvoiceDraft(transfers);
-    expect(draft!.transferCount).toBe(1);
-    expect(draft!.totalAmount).toBe(50);
-  });
-
   it("returns null when there is nothing to bill", () => {
     const transfers = [makeTransfer({ status: "pending" })];
     expect(buildInvoiceDraft(transfers)).toBeNull();
   });
 
+  it("returns null when transfers are accepted but not yet marked billable", () => {
+    const transfers = [makeTransfer({ status: "accepted", billing_status: null })];
+    expect(buildInvoiceDraft(transfers)).toBeNull();
+  });
+
   it("computes the period from the earliest and latest eligible dates", () => {
     const transfers = [
-      makeTransfer({ status: "accepted", invoice_id: null, transfer_date: "2026-07-03" }),
-      makeTransfer({ status: "accepted", invoice_id: null, transfer_date: "2026-07-01" }),
-      makeTransfer({ status: "accepted", invoice_id: null, transfer_date: "2026-07-02" }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, transfer_date: "2026-07-03" }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, transfer_date: "2026-07-01" }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, transfer_date: "2026-07-02" }),
     ];
     const draft = buildInvoiceDraft(transfers);
     expect(draft!.periodStart).toBe("2026-07-01");
@@ -76,8 +82,8 @@ describe("buildInvoiceDraft", () => {
 
   it("rounds the total to two decimal places", () => {
     const transfers = [
-      makeTransfer({ status: "accepted", invoice_id: null, value: 10.1 }),
-      makeTransfer({ status: "accepted", invoice_id: null, value: 20.2 }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, value: 10.1 }),
+      makeTransfer({ status: "accepted", billing_status: "billable", invoice_id: null, value: 20.2 }),
     ];
     const draft = buildInvoiceDraft(transfers);
     expect(draft!.totalAmount).toBe(30.3);

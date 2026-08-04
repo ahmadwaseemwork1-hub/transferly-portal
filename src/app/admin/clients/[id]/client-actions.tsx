@@ -6,96 +6,11 @@ import {
   updateClientStatus,
   resetClientPassword,
   generateInvoiceForClient,
-  updateClientDetails,
-  archiveClient,
-  restoreClient,
+  updateClientOperations,
+  adminSetTransferBilling,
 } from "@/app/admin/actions";
-import { Button, Input, Label, Select } from "@/components/ui";
-
-const US_STATES = [
-  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
-  "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
-  "Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
-  "Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire",
-  "New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio",
-  "Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota",
-  "Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia",
-  "Wisconsin","Wyoming","Washington D.C.",
-];
-
-export function ClientDetailsEditor({
-  clientId,
-  initialState,
-  initialRequirements,
-  initialNotes,
-}: {
-  clientId: string;
-  initialState: string;
-  initialRequirements: string;
-  initialNotes: string;
-}) {
-  const router = useRouter();
-  const [state, setState] = useState(initialState);
-  const [requirements, setRequirements] = useState(initialRequirements);
-  const [notes, setNotes] = useState(initialNotes);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-    setError(null);
-    const result = await updateClientDetails(clientId, { state, requirements, notes });
-    setLoading(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setMessage("Client details saved.");
-    router.refresh();
-  }
-
-  return (
-    <form onSubmit={handleSave} className="flex flex-col gap-4">
-      <div>
-        <Label>State</Label>
-        <Select value={state} onChange={(e) => setState(e.target.value)}>
-          <option value="">— Select state —</option>
-          {US_STATES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </Select>
-      </div>
-      <div>
-        <Label>Lead requirements</Label>
-        <textarea
-          rows={5}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          placeholder="Describe lead quality requirements, filters, or notes for agents handling this client's transfers (e.g. 'Only send homeowners age 35-65 from Texas, no DUIs, minimum $100k coverage interest')."
-          value={requirements}
-          onChange={(e) => setRequirements(e.target.value)}
-        />
-      </div>
-      <div>
-        <Label>Internal notes</Label>
-        <textarea
-          rows={3}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          placeholder="Private notes about this client (billing terms, preferences, history, etc.)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
-      {error && <p className="text-sm text-danger">{error}</p>}
-      {message && <p className="text-sm text-success">{message}</p>}
-      <Button type="submit" size="sm" className="self-start" disabled={loading}>
-        {loading ? "Saving..." : "Save details"}
-      </Button>
-    </form>
-  );
-}
+import { updateClientRate } from "@/app/admin/financial-actions";
+import { Button, Badge, Input, Label, Select } from "@/components/ui";
 
 export function StatusToggle({
   clientId,
@@ -164,52 +79,6 @@ export function ResetPasswordForm({ clientId }: { clientId: string }) {
   );
 }
 
-export function ArchiveClientControl({
-  clientId,
-  archivedAt,
-}: {
-  clientId: string;
-  archivedAt: string | null;
-}) {
-  const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleToggle() {
-    setLoading(true);
-    if (archivedAt) {
-      await restoreClient(clientId);
-    } else {
-      await archiveClient(clientId);
-    }
-    setLoading(false);
-    setConfirming(false);
-    router.refresh();
-  }
-
-  if (!confirming) {
-    return (
-      <Button variant="danger" size="sm" onClick={() => setConfirming(true)} disabled={loading}>
-        {archivedAt ? "Restore client" : "Archive client"}
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-foreground">
-        {archivedAt ? "Restore this client?" : "Archive? They can't log in until restored."}
-      </span>
-      <Button variant="danger" size="sm" onClick={handleToggle} disabled={loading}>
-        {loading ? "Working..." : "Confirm"}
-      </Button>
-      <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={loading}>
-        Cancel
-      </Button>
-    </div>
-  );
-}
-
 export function GenerateInvoiceButton({
   clientId,
   disabled,
@@ -239,6 +108,281 @@ export function GenerateInvoiceButton({
         {loading ? "Generating..." : "Generate invoice"}
       </Button>
       {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
+
+export function RateEditor({
+  clientId,
+  initialRate,
+}: {
+  clientId: string;
+  initialRate: number | null;
+}) {
+  const router = useRouter();
+  const [rate, setRate] = useState(initialRate != null ? String(initialRate) : "");
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSave() {
+    setLoading(true);
+    setMessage(null);
+    const result = await updateClientRate(clientId, rate);
+    setLoading(false);
+    if (!result.ok) {
+      setMessage(result.error);
+      return;
+    }
+    setMessage("Saved. New transfers for this client will use this rate.");
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
+      <div className="max-w-[200px]">
+        <Label>Price per accepted transfer (USD)</Label>
+        <Input
+          type="number"
+          min={0}
+          step="0.01"
+          value={rate}
+          onChange={(e) => setRate(e.target.value)}
+        />
+      </div>
+      <Button variant="outline" size="sm" onClick={handleSave} disabled={loading}>
+        {loading ? "Saving..." : "Save rate"}
+      </Button>
+      {message && <p className="text-sm text-muted">{message}</p>}
+    </div>
+  );
+}
+
+export function ClientOperationsPanel({
+  clientId,
+  initial,
+}: {
+  clientId: string;
+  initial: {
+    campaign_status: "active" | "paused";
+    schedule_from: string | null;
+    schedule_to: string | null;
+    paused_until: string | null;
+    daily_cap: number | null;
+    cooloff_minutes: number | null;
+    accepted_states: string | null;
+    notes: string | null;
+  };
+}) {
+  const router = useRouter();
+  const [form, setForm] = useState({
+    campaign_status: initial.campaign_status,
+    schedule_from: initial.schedule_from ?? "",
+    schedule_to: initial.schedule_to ?? "",
+    paused_until: initial.paused_until ? initial.paused_until.slice(0, 16) : "",
+    daily_cap: initial.daily_cap != null ? String(initial.daily_cap) : "",
+    cooloff_minutes: initial.cooloff_minutes != null ? String(initial.cooloff_minutes) : "",
+    accepted_states: initial.accepted_states ?? "",
+    notes: initial.notes ?? "",
+  });
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSave() {
+    setLoading(true);
+    setMessage(null);
+    const result = await updateClientOperations(clientId, {
+      campaign_status: form.campaign_status,
+      schedule_from: form.schedule_from || null,
+      schedule_to: form.schedule_to || null,
+      paused_until: form.paused_until ? new Date(form.paused_until).toISOString() : null,
+      daily_cap: form.daily_cap.trim() ? Number(form.daily_cap) : null,
+      cooloff_minutes: form.cooloff_minutes.trim() ? Number(form.cooloff_minutes) : null,
+      accepted_states: form.accepted_states.trim() || null,
+      notes: form.notes.trim() || null,
+    });
+    setLoading(false);
+    if (!result.ok) {
+      setMessage(result.error);
+      return;
+    }
+    setMessage("Saved.");
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Campaign</p>
+          <Select
+            value={form.campaign_status}
+            onChange={(e) => update("campaign_status", e.target.value as "active" | "paused")}
+          >
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+          </Select>
+          <p className="mt-1 text-xs text-muted">
+            Also self-toggled by the client. "Agent" status below mirrors this.
+          </p>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Agent</p>
+          <div className="flex h-[42px] items-center">
+            <Badge
+              className={
+                form.campaign_status === "active"
+                  ? "bg-success-soft text-success"
+                  : "bg-neutral-100 text-muted"
+              }
+            >
+              {form.campaign_status === "active" ? "Online" : "Offline"}
+            </Badge>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Schedule info
+          </p>
+          <div className="flex items-center gap-2">
+            <Input
+              type="time"
+              value={form.schedule_from}
+              onChange={(e) => update("schedule_from", e.target.value)}
+            />
+            <span className="text-sm text-muted">to</span>
+            <Input
+              type="time"
+              value={form.schedule_to}
+              onChange={(e) => update("schedule_to", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Timer info</p>
+          <Input
+            type="datetime-local"
+            value={form.paused_until}
+            onChange={(e) => update("paused_until", e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted">Pause until (optional)</p>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Cap info</p>
+          <Input
+            type="number"
+            min={0}
+            value={form.daily_cap}
+            onChange={(e) => update("daily_cap", e.target.value)}
+            placeholder="Daily cap (blank = no limit)"
+          />
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Transfer info
+          </p>
+          <Input
+            type="number"
+            min={0}
+            value={form.cooloff_minutes}
+            onChange={(e) => update("cooloff_minutes", e.target.value)}
+            placeholder="Cool-off minutes between transfers"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Extra info
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input
+              value={form.accepted_states}
+              onChange={(e) => update("accepted_states", e.target.value)}
+              placeholder="Accepted states (e.g. FL, GA, TX)"
+            />
+            <Input
+              value={form.notes}
+              onChange={(e) => update("notes", e.target.value)}
+              placeholder="Notes"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="sm" onClick={handleSave} disabled={loading}>
+          {loading ? "Saving..." : "Save"}
+        </Button>
+        {message && <p className="text-sm text-muted">{message}</p>}
+      </div>
+    </div>
+  );
+}
+
+export function AdminBillingDecisionList({
+  transfers,
+}: {
+  transfers: { id: string; lead_name: string | null; transfer_date: string; value: number }[];
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function decide(id: string, status: "billable" | "refund") {
+    setLoading(`${id}-${status}`);
+    setError(null);
+    const result = await adminSetTransferBilling(id, status);
+    setLoading(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  if (transfers.length === 0) {
+    return <p className="px-6 py-8 text-center text-sm text-muted">Nothing awaiting a billing decision.</p>;
+  }
+
+  return (
+    <div className="flex flex-col divide-y divide-border">
+      {transfers.map((t) => (
+        <div key={t.id} className="flex items-center justify-between gap-3 px-6 py-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">{t.lead_name ?? "Unnamed lead"}</p>
+            <p className="text-xs text-muted">
+              {t.transfer_date} · {t.value}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => decide(t.id, "billable")}
+              disabled={loading !== null}
+            >
+              {loading === `${t.id}-billable` ? "Saving..." : "Billable"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => decide(t.id, "refund")}
+              disabled={loading !== null}
+            >
+              {loading === `${t.id}-refund` ? "Saving..." : "Refund"}
+            </Button>
+          </div>
+        </div>
+      ))}
+      {error && <p className="px-6 py-3 text-sm text-danger">{error}</p>}
     </div>
   );
 }

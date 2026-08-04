@@ -5,15 +5,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createEmployeeAccount } from "@/app/admin/actions";
-import { Button, Card, CardHeader, Input, Label } from "@/components/ui";
+import { Button, Card, CardHeader, Input, Label, Select, Textarea } from "@/components/ui";
+import { BonusTierEditor } from "@/components/bonus-tier-editor";
+import type { BonusTier, EmploymentType } from "@/lib/types";
 
 export default function NewEmployeePage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", daily_cap: "10", pkr_rate_per_transfer: "0", password: "", notes: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    employment_type: "remote" as EmploymentType,
+    base_rate_pkr: "",
+    daily_cap: "",
+    notes: "",
+    password: "",
+  });
+  const [tiers, setTiers] = useState<BonusTier[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function update(key: keyof typeof form, value: string) {
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
@@ -21,50 +33,106 @@ export default function NewEmployeePage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const result = await createEmployeeAccount(form);
+    const result = await createEmployeeAccount({ ...form, bonus_tiers: tiers });
     setLoading(false);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
     router.push(`/admin/employees/${result.data.employeeId}`);
   }
 
   return (
     <div className="mx-auto max-w-xl">
-      <Link href="/admin/employees" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary">
-        <ArrowLeft className="h-4 w-4" /> Back to employees
+      <Link
+        href="/admin/employees"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to employees
       </Link>
       <Card>
-        <CardHeader title="Add a new employee" description="Creates their login and sets their daily transfer cap." />
+        <CardHeader title="Add a new employee" description="Creates their login too." />
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
           <div>
-            <Label>Full name *</Label>
-            <Input required value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Sarah Ahmed" />
+            <Label>Full name</Label>
+            <Input
+              required
+              value={form.full_name}
+              onChange={(e) => update("full_name", e.target.value)}
+            />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <Label>Email (login) *</Label>
-              <Input type="email" required value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="sarah@yourcompany.com" />
+              <Label>Email (used to log in)</Label>
+              <Input
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+              />
             </div>
             <div>
-              <Label>Daily cap *</Label>
-              <Input type="number" required min="0" value={form.daily_cap} onChange={(e) => update("daily_cap", e.target.value)} placeholder="10" />
-              <p className="mt-1 text-xs text-muted">Max transfers they can upload per day</p>
+              <Label>Phone</Label>
+              <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} />
             </div>
           </div>
           <div>
-            <Label>PKR rate per transfer *</Label>
-            <Input type="number" required min="0" step="0.01" value={form.pkr_rate_per_transfer} onChange={(e) => update("pkr_rate_per_transfer", e.target.value)} placeholder="500" />
-            <p className="mt-1 text-xs text-muted">What this employee earns per lead submitted, paid regardless of accept/decline. They never see client dollar values.</p>
+            <Label>Employment type</Label>
+            <Select
+              value={form.employment_type}
+              onChange={(e) => update("employment_type", e.target.value as EmploymentType)}
+            >
+              <option value="onsite">On-site</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="remote">Remote</option>
+              <option value="part_time">Part-time</option>
+            </Select>
+          </div>
+          <div>
+            <Label>Base rate per transfer (PKR)</Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.base_rate_pkr}
+              onChange={(e) => update("base_rate_pkr", e.target.value)}
+              placeholder="1000"
+            />
+          </div>
+          <BonusTierEditor tiers={tiers} onChange={setTiers} />
+          <div>
+            <Label>Daily cap (max transfers they can upload per day)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={form.daily_cap}
+              onChange={(e) => update("daily_cap", e.target.value)}
+              placeholder="Leave blank for no limit"
+            />
           </div>
           <div>
             <Label>Notes (optional)</Label>
-            <Input value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Any notes about this employee" />
+            <Textarea
+              rows={3}
+              value={form.notes}
+              onChange={(e) => update("notes", e.target.value)}
+              placeholder="Anything worth remembering about this employee"
+            />
           </div>
           <div>
-            <Label>Temporary password *</Label>
-            <Input required minLength={8} value={form.password} onChange={(e) => update("password", e.target.value)} placeholder="At least 8 characters" />
-            <p className="mt-1 text-xs text-muted">Share directly with the employee. Reset anytime.</p>
+            <Label>Temporary password</Label>
+            <Input
+              required
+              minLength={8}
+              value={form.password}
+              onChange={(e) => update("password", e.target.value)}
+              placeholder="At least 8 characters"
+            />
           </div>
-          {error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>
+          )}
           <Button type="submit" disabled={loading} className="mt-2">
             {loading ? "Creating..." : "Create employee"}
           </Button>

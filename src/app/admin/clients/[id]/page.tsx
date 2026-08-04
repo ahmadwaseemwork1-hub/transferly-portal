@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, Badge, StatCard } from "@/components/ui";
-import { FilterableTransferTable } from "@/components/filterable-transfer-table";
-import { RealtimeRefresher } from "@/components/realtime-refresher";
+import { TransferTable } from "@/components/transfer-table";
 import { computeStats } from "@/lib/stats";
 import { formatCurrency, todayISO, cn } from "@/lib/utils";
 import type { Transfer } from "@/lib/types";
@@ -12,8 +11,9 @@ import {
   StatusToggle,
   ResetPasswordForm,
   GenerateInvoiceButton,
-  ClientDetailsEditor,
-  ArchiveClientControl,
+  RateEditor,
+  ClientOperationsPanel,
+  AdminBillingDecisionList,
 } from "./client-actions";
 
 export default async function ClientDetailPage({
@@ -40,7 +40,6 @@ export default async function ClientDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <RealtimeRefresher tables={["transfers", "clients"]} />
       <Link
         href="/admin"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted hover:text-primary"
@@ -68,20 +67,10 @@ export default async function ClientDetailPage({
           <p className="mt-1 text-sm text-muted">
             {client.contact_name} · {client.email} · {client.phone}
           </p>
-          {(client.state || client.requirements) && (
-            <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted">
-              {client.state && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-foreground">
-                  📍 {client.state}
-                </span>
-              )}
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <StatusToggle clientId={client.id} status={client.status} />
           <GenerateInvoiceButton clientId={client.id} disabled={stats.creditPending <= 0} />
-          <ArchiveClientControl clientId={client.id} archivedAt={client.archived_at} />
         </div>
       </div>
 
@@ -93,14 +82,40 @@ export default async function ClientDetailPage({
       </div>
 
       <Card>
-        <CardHeader title="Client details" description="State, requirements, and notes for this client." />
+        <CardHeader
+          title="Operations"
+          description="Campaign, Agent, Schedule, Timer, Cap, Transfer, Status and Extra info — editable any time."
+        />
         <div className="p-6">
-          <ClientDetailsEditor
+          <ClientOperationsPanel
             clientId={client.id}
-            initialState={client.state ?? ""}
-            initialRequirements={client.requirements ?? ""}
-            initialNotes={client.notes ?? ""}
+            initial={{
+              campaign_status: client.campaign_status,
+              schedule_from: client.schedule_from,
+              schedule_to: client.schedule_to,
+              paused_until: client.paused_until,
+              daily_cap: client.daily_cap,
+              cooloff_minutes: client.cooloff_minutes,
+              accepted_states: client.accepted_states,
+              notes: client.notes,
+            }}
           />
+        </div>
+        <div className="border-t border-border p-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            Status info (account)
+          </p>
+          <p className="text-sm text-muted">
+            The account-level status controls whether this client can be sent transfers at all —
+            separate from the Campaign toggle above, which the client controls themselves day to day.
+          </p>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Billing rate" description="What this client pays per accepted transfer." />
+        <div className="p-6">
+          <RateEditor clientId={client.id} initialRate={client.price_per_transfer} />
         </div>
       </Card>
 
@@ -112,8 +127,20 @@ export default async function ClientDetailPage({
       </Card>
 
       <Card>
-        <CardHeader title="Transfer history" description="Search by lead name, filter by status or date range." />
-        <FilterableTransferTable transfers={transferList} showBillable adminDeletable />
+        <CardHeader
+          title="Awaiting billing decision"
+          description="Accepted transfers where the call has ended — mark them billable or refund."
+        />
+        <AdminBillingDecisionList
+          transfers={transferList
+            .filter((t) => t.status === "accepted" && !t.billing_status)
+            .map((t) => ({ id: t.id, lead_name: t.lead_name, transfer_date: t.transfer_date, value: t.value }))}
+        />
+      </Card>
+
+      <Card>
+        <CardHeader title="Transfer history" description="All transfers sent to this client." />
+        <TransferTable transfers={transferList} />
       </Card>
     </div>
   );
