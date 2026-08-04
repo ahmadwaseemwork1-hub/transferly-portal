@@ -107,6 +107,39 @@ export async function updateClientStatus(
   return { ok: true, data: undefined };
 }
 
+/** Archive is a reversible soft-delete: hides the client from active lists
+ *  and blocks their login, but keeps every historical transfer/invoice intact. */
+export async function archiveClient(clientId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("clients")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", clientId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  revalidatePath(`/admin/clients/${clientId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function restoreClient(clientId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("clients").update({ archived_at: null }).eq("id", clientId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  revalidatePath(`/admin/clients/${clientId}`);
+  return { ok: true, data: undefined };
+}
+
 export async function resetClientPassword(
   clientId: string,
   newPassword: string
@@ -266,6 +299,79 @@ export async function generateInvoiceForClient(
   return { ok: true, data: { invoiceId: invoice.id } };
 }
 
+export async function updateInvoiceStatus(
+  invoiceId: string,
+  status: "generated" | "sent" | "paid"
+): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("invoices").update({ status }).eq("id", invoiceId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${invoiceId}`);
+  revalidatePath("/client/invoices");
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Marks an invoice as sent, and — if RESEND_API_KEY is configured — emails
+ * the client a link to view/download it. Without that env var, the invoice
+ * is still marked sent so admin can download the PDF and send it manually.
+ */
+export async function sendInvoiceToClient(invoiceId: string): Promise<ActionResult<{ emailed: boolean }>> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+
+  const { data: invoice, error } = await admin
+    .from("invoices")
+    .update({ status: "sent" })
+    .eq("id", invoiceId)
+    .select("client_id, invoice_number")
+    .single();
+  if (error || !invoice) return { ok: false, error: error?.message ?? "Could not update invoice." };
+
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${invoiceId}`);
+  revalidatePath("/client/invoices");
+
+  const resendKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  if (!resendKey || !fromEmail) {
+    return { ok: true, data: { emailed: false } };
+  }
+
+  const { data: client } = await admin
+    .from("clients")
+    .select("email, business_name")
+    .eq("id", invoice.client_id)
+    .maybeSingle();
+  if (!client?.email) return { ok: true, data: { emailed: false } };
+
+  try {
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: client.email,
+        subject: `Invoice ${invoice.invoice_number} from Transferly`,
+        html: `<p>Hi ${client.business_name},</p><p>Your invoice <strong>${invoice.invoice_number}</strong> is ready. Log in to your Transferly portal to view and download it.</p>`,
+      }),
+    });
+    return { ok: true, data: { emailed: resp.ok } };
+  } catch {
+    return { ok: true, data: { emailed: false } };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Employees
 // ---------------------------------------------------------------------------
@@ -357,6 +463,39 @@ export async function updateEmployeeStatus(
   }
   const admin = createAdminClient();
   const { error } = await admin.from("employees").update({ status }).eq("id", employeeId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/employees");
+  revalidatePath(`/admin/employees/${employeeId}`);
+  return { ok: true, data: undefined };
+}
+
+/** Archive is a reversible soft-delete: hides the employee from active lists
+ *  and blocks their login, but keeps every historical submission intact. */
+export async function archiveEmployee(employeeId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("employees")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", employeeId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/employees");
+  revalidatePath(`/admin/employees/${employeeId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function restoreEmployee(employeeId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("employees").update({ archived_at: null }).eq("id", employeeId);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/employees");
   revalidatePath(`/admin/employees/${employeeId}`);
@@ -503,13 +642,17 @@ export async function rejectEmployeeTransfer(transferId: string): Promise<Action
 
 export async function adminSetTransferBilling(
   transferId: string,
-  billingStatus: "billable" | "refund"
+  billingStatus: "billable" | "refund",
+  note?: string
 ): Promise<ActionResult> {
   let adminUser;
   try {
     adminUser = await requireAdmin();
   } catch (err) {
     return { ok: false, error: authErrorMessage(err) };
+  }
+  if (billingStatus === "refund" && !note?.trim()) {
+    return { ok: false, error: "Please explain why this transfer is a refund." };
   }
   const admin = createAdminClient();
   const { data: row, error: fetchError } = await admin
@@ -526,6 +669,7 @@ export async function adminSetTransferBilling(
     .from("transfers")
     .update({
       billing_status: billingStatus,
+      billing_note: note?.trim() || null,
       billing_decided_at: new Date().toISOString(),
       billing_decided_by: adminUser.user.id,
     })
@@ -580,5 +724,35 @@ export async function updateEmployeeDailyCap(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/employees");
   revalidatePath(`/admin/employees/${employeeId}`);
+  return { ok: true, data: undefined };
+}
+
+/** Hard-deletes a single lead. Only allowed while it has never been invoiced,
+ *  so billing history can never be silently erased. */
+export async function deleteTransfer(transferId: string): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { ok: false, error: authErrorMessage(err) };
+  }
+  const admin = createAdminClient();
+  const { data: transfer } = await admin
+    .from("transfers")
+    .select("client_id, submitted_by, invoice_id")
+    .eq("id", transferId)
+    .maybeSingle();
+  if (!transfer) return { ok: false, error: "Lead not found." };
+  if (transfer.invoice_id) {
+    return { ok: false, error: "Cannot delete a lead that has already been invoiced." };
+  }
+
+  const { error } = await admin.from("transfers").delete().eq("id", transferId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  revalidatePath(`/admin/clients/${transfer.client_id}`);
+  if (transfer.submitted_by) revalidatePath(`/admin/employees/${transfer.submitted_by}`);
+  revalidatePath("/admin/approvals");
+  revalidatePath("/client");
+  revalidatePath("/employee");
   return { ok: true, data: undefined };
 }

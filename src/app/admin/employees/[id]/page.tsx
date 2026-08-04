@@ -12,6 +12,7 @@ import {
   ResetPasswordForm,
   PayRulesForm,
   ClientAssignments,
+  ArchiveEmployeeControl,
 } from "./employee-actions";
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
@@ -84,7 +85,10 @@ export default async function EmployeeDetailPage({
             {employee.email} · {employee.phone}
           </p>
         </div>
-        <StatusToggle employeeId={employee.id} status={employee.status} />
+        <div className="flex items-center gap-2">
+          <StatusToggle employeeId={employee.id} status={employee.status} />
+          <ArchiveEmployeeControl employeeId={employee.id} archivedAt={employee.archived_at} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -21,8 +21,14 @@ export async function fetchLeadFormLookup(): Promise<{
       .from("clients")
       .select("id, business_name, campaign_status")
       .eq("status", "active")
+      .is("archived_at", null)
       .order("business_name"),
-    admin.from("employees").select("id, full_name").eq("status", "active").order("full_name"),
+    admin
+      .from("employees")
+      .select("id, full_name")
+      .eq("status", "active")
+      .is("archived_at", null)
+      .order("full_name"),
   ]);
 
   return {
@@ -96,12 +102,12 @@ export async function submitLeadTransfer(input: {
 
   const { data: client, error: clientError } = await admin
     .from("clients")
-    .select("id, price_per_transfer, campaign_status")
+    .select("id, price_per_transfer, campaign_status, archived_at")
     .eq("id", input.clientId)
     .maybeSingle();
 
   if (clientError) return { ok: false, error: clientError.message };
-  if (!client) {
+  if (!client || client.archived_at) {
     return { ok: false, error: "That client no longer exists." };
   }
   if (client.campaign_status === "paused") {
@@ -133,6 +139,32 @@ export async function submitLeadTransfer(input: {
           error: `Daily cap reached (${employeeRow.daily_cap}/day). Ask an admin to raise it if you need to submit more today.`,
         };
       }
+    }
+  }
+
+  // Duplicate check: same phone number already sent to this client. Logged
+  // to duplicate_lead_attempts either way, so admin gets a real-time alert
+  // naming the agent even when the block is correct and expected.
+  const normalizedPhone = (lead.phone ?? "").trim();
+  if (normalizedPhone) {
+    const { data: existing, error: dupError } = await admin
+      .from("transfers")
+      .select("id")
+      .eq("client_id", input.clientId)
+      .eq("phone", normalizedPhone)
+      .limit(1);
+    if (dupError) return { ok: false, error: dupError.message };
+
+    if (existing && existing.length > 0) {
+      await admin.from("duplicate_lead_attempts").insert({
+        client_id: input.clientId,
+        employee_id: agentEmployeeId,
+        phone: normalizedPhone,
+      });
+      return {
+        ok: false,
+        error: "Duplicate lead — a lead with this phone number was already sent to this client.",
+      };
     }
   }
 

@@ -35,10 +35,13 @@ export async function respondToTransfer(
  * the call has ended, mark it billable (counts toward what's owed) or
  * refund (doesn't). Both admin and client can call this — the RPC checks
  * that whoever's calling either owns the transfer's client or is an admin.
+ * Editable any time before it's invoiced, not just once — a note is
+ * required when marking refund, explaining why.
  */
 export async function setTransferBilling(
   transferId: string,
-  billingStatus: "billable" | "refund"
+  billingStatus: "billable" | "refund",
+  note?: string
 ): Promise<ActionResult> {
   let ctx;
   try {
@@ -50,6 +53,7 @@ export async function setTransferBilling(
   const { error } = await ctx.supabase.rpc("set_transfer_billing", {
     p_transfer_id: transferId,
     p_billing_status: billingStatus,
+    p_note: note?.trim() || null,
   });
 
   if (error) return { ok: false, error: error.message };

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InvoiceDocument } from "@/components/invoice-document";
+import { InvoiceStatusButton } from "@/components/invoice-status-actions";
 import type { Transfer } from "@/lib/types";
 
 export default async function AdminInvoiceDetailPage({
@@ -26,10 +27,15 @@ export default async function AdminInvoiceDetailPage({
   if (!client) notFound();
 
   return (
-    <InvoiceDocument
-      invoice={invoice}
-      client={client}
-      transfers={(transfers ?? []) as Transfer[]}
-    />
+    <div className="flex flex-col gap-4">
+      <div className="no-print mx-auto flex w-full max-w-3xl justify-end">
+        <InvoiceStatusButton invoiceId={invoice.id} currentStatus={invoice.status} />
+      </div>
+      <InvoiceDocument
+        invoice={invoice}
+        client={client}
+        transfers={(transfers ?? []) as Transfer[]}
+      />
+    </div>
   );
 }

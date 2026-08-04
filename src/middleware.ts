@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
     // the whole request with an unhandled error.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, client_id, employee_id")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -66,6 +66,38 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/login";
       url.searchParams.set("error", "not_authorized");
       return NextResponse.redirect(url);
+    }
+
+    // Archived clients/employees are blocked even with a valid session —
+    // archiving is meant to immediately revoke access, not just hide them
+    // from admin's active lists.
+    if (isClientRoute && profile?.role === "client" && profile.client_id) {
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("archived_at")
+        .eq("id", profile.client_id)
+        .maybeSingle();
+      if (clientRow?.archived_at) {
+        await supabase.auth.signOut();
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.searchParams.set("error", "archived");
+        return NextResponse.redirect(url);
+      }
+    }
+    if (isEmployeeRoute && profile?.role === "employee" && profile.employee_id) {
+      const { data: employeeRow } = await supabase
+        .from("employees")
+        .select("archived_at")
+        .eq("id", profile.employee_id)
+        .maybeSingle();
+      if (employeeRow?.archived_at) {
+        await supabase.auth.signOut();
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.searchParams.set("error", "archived");
+        return NextResponse.redirect(url);
+      }
     }
   }
 

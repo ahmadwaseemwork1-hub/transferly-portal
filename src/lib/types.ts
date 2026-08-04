@@ -23,6 +23,7 @@ export interface Client {
   daily_cap: number | null;
   cooloff_minutes: number | null;
   accepted_states: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +56,7 @@ export interface Employee {
   daily_cap: number | null;
   start_date: string | null;
   notes: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +91,7 @@ export interface Transfer {
   // Two-stage outcome after acceptance: null while the call is in progress /
   // not yet resolved, then "billable" or "refund" once decided.
   billing_status: BillingStatus | null;
+  billing_note: string | null;
   billing_decided_at: string | null;
   billing_decided_by: string | null;
   invoice_id: string | null;

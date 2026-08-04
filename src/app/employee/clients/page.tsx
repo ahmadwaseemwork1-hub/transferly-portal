@@ -27,9 +27,17 @@ export default async function EmployeeClientsPage({
 
   const clientIds = (assignments ?? []).map((a) => a.client_id);
 
+  // Never select `price_per_transfer` here — employees only ever see their
+  // own PKR pay rate, never what the client pays.
   const { data: clients } =
     clientIds.length > 0
-      ? await supabase.from("clients").select("*").in("id", clientIds).order("business_name")
+      ? await supabase
+          .from("clients")
+          .select(
+            "id, business_name, contact_name, email, phone, status, campaign_status, schedule_from, schedule_to, daily_cap, accepted_states, notes"
+          )
+          .in("id", clientIds)
+          .order("business_name")
       : { data: [] as Client[] };
 
   const clientList = (clients ?? []) as Client[];
@@ -96,12 +104,6 @@ export default async function EmployeeClientsPage({
                 <div className="flex justify-between">
                   <dt className="text-muted">Phone</dt>
                   <dd className="text-foreground">{client.phone ?? "—"}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted">Rate / transfer</dt>
-                  <dd className="text-foreground">
-                    {client.price_per_transfer != null ? `$${client.price_per_transfer}` : "—"}
-                  </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted">Schedule</dt>

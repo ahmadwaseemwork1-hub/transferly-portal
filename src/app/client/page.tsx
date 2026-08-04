@@ -21,9 +21,12 @@ export default async function ClientDashboardPage() {
   const transferList = (transfers ?? []) as Transfer[];
   const client = clientRow as Client | null;
   const pending = transferList.filter((t) => t.status === "pending");
+  // Editable any time before invoicing, not just once — includes both
+  // undecided transfers and ones you already marked billable/refund.
   const awaitingBilling = transferList.filter(
-    (t) => t.status === "accepted" && !t.billing_status
+    (t) => t.status === "accepted" && !t.invoice_id
   );
+  const undecidedCount = awaitingBilling.filter((t) => !t.billing_status).length;
   const stats = computeStats(transferList, today);
 
   return (
@@ -68,7 +71,8 @@ export default async function ClientDashboardPage() {
       {awaitingBilling.length > 0 && (
         <div>
           <h2 className="mb-3 text-base font-semibold text-foreground">
-            Accepted — mark billable or refund ({awaitingBilling.length})
+            Accepted — billable or refund
+            {undecidedCount > 0 ? ` (${undecidedCount} need a decision)` : ""}
           </h2>
           <div className="flex flex-col gap-3">
             {awaitingBilling.map((t) => (

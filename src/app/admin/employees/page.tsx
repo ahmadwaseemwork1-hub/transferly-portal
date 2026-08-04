@@ -29,9 +29,10 @@ export default async function AdminEmployeesPage({
   const supabase = await createClient();
   const today = todayISO();
 
-  const [{ data: employees }, { data: transfers }] = await Promise.all([
-    supabase.from("employees").select("*").order("full_name"),
+  const [{ data: employees }, { data: transfers }, { count: archivedCount }] = await Promise.all([
+    supabase.from("employees").select("*").is("archived_at", null).order("full_name"),
     supabase.from("transfers").select("*").eq("transfer_date", today),
+    supabase.from("employees").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
   ]);
 
   const employeeList = (employees ?? []) as Employee[];
@@ -44,7 +45,10 @@ export default async function AdminEmployeesPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-semibold text-foreground">Employees</h1>
-          <p className="mt-1 text-sm text-muted">Your team, their setup, and today's activity.</p>
+          <p className="mt-1 text-sm text-muted">
+            Your team, their setup, and today&apos;s activity.
+            {archivedCount ? ` ${archivedCount} archived.` : ""}
+          </p>
         </div>
         <Link href="/admin/employees/new">
           <Button>

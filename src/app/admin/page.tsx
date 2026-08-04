@@ -5,6 +5,7 @@ import { computeStats } from "@/lib/stats";
 import { formatCurrency, todayISO, cn } from "@/lib/utils";
 import type { Client, Transfer } from "@/lib/types";
 import { Plus } from "lucide-react";
+import { RealtimeDuplicateAlerts } from "@/components/realtime-duplicate-alerts";
 
 const FILTERS = [
   { value: "all", label: "All" },
@@ -23,24 +24,31 @@ export default async function AdminClientsPage({
   const supabase = await createClient();
   const today = todayISO();
 
-  const [{ data: clients }, { data: transfers }] = await Promise.all([
-    supabase.from("clients").select("*").order("business_name"),
-    supabase.from("transfers").select("*"),
-  ]);
+  const [{ data: clients }, { data: transfers }, { data: employees }, { count: archivedCount }] =
+    await Promise.all([
+      supabase.from("clients").select("*").is("archived_at", null).order("business_name"),
+      supabase.from("transfers").select("*"),
+      supabase.from("employees").select("id, full_name"),
+      supabase.from("clients").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    ]);
 
   const clientList = (clients ?? []) as Client[];
   const transferList = (transfers ?? []) as Transfer[];
+  const employeeNames = Object.fromEntries((employees ?? []).map((e) => [e.id, e.full_name]));
+  const clientNames = Object.fromEntries(clientList.map((c) => [c.id, c.business_name]));
 
   const visibleClients =
     filter === "all" ? clientList : clientList.filter((c) => c.campaign_status === filter);
 
   return (
     <div className="flex flex-col gap-6">
+      <RealtimeDuplicateAlerts employeeNames={employeeNames} clientNames={clientNames} />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-serif text-2xl font-semibold text-foreground">Clients</h1>
           <p className="mt-1 text-sm text-muted">
             Every client you manage, and how they&apos;re tracking.
+            {archivedCount ? ` ${archivedCount} archived.` : ""}
           </p>
         </div>
         <Link href="/admin/clients/new">

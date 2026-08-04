@@ -22,14 +22,18 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (searchParams.get("error") === "not_authorized") {
+    const errorParam = searchParams.get("error");
+    if (errorParam === "not_authorized") {
       setError(
         "That account isn't set up for this area of the portal. Contact your admin."
       );
+    } else if (errorParam === "archived") {
+      setError("This account has been archived. Contact your admin if this is unexpected.");
     }
   }, []);
 
@@ -38,7 +42,7 @@ function LoginForm() {
     setError(null);
     setLoading(true);
 
-    const supabase = createClient();
+    const supabase = createClient({ rememberMe });
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -124,6 +128,15 @@ function LoginForm() {
                 placeholder="••••••••"
               />
             </div>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+              />
+              Keep me signed in on this browser
+            </label>
             {error && (
               <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
                 {error}

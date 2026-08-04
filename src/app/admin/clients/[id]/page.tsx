@@ -14,6 +14,7 @@ import {
   RateEditor,
   ClientOperationsPanel,
   AdminBillingDecisionList,
+  ArchiveClientControl,
 } from "./client-actions";
 
 export default async function ClientDetailPage({
@@ -71,6 +72,7 @@ export default async function ClientDetailPage({
         <div className="flex items-center gap-2">
           <StatusToggle clientId={client.id} status={client.status} />
           <GenerateInvoiceButton clientId={client.id} disabled={stats.creditPending <= 0} />
+          <ArchiveClientControl clientId={client.id} archivedAt={client.archived_at} />
         </div>
       </div>
 
@@ -128,19 +130,26 @@ export default async function ClientDetailPage({
 
       <Card>
         <CardHeader
-          title="Awaiting billing decision"
-          description="Accepted transfers where the call has ended — mark them billable or refund."
+          title="Billing decisions"
+          description="Accepted, uninvoiced transfers — mark them billable or refund. Editable any time before invoicing."
         />
         <AdminBillingDecisionList
           transfers={transferList
-            .filter((t) => t.status === "accepted" && !t.billing_status)
-            .map((t) => ({ id: t.id, lead_name: t.lead_name, transfer_date: t.transfer_date, value: t.value }))}
+            .filter((t) => t.status === "accepted" && !t.invoice_id)
+            .map((t) => ({
+              id: t.id,
+              lead_name: t.lead_name,
+              transfer_date: t.transfer_date,
+              value: t.value,
+              billing_status: t.billing_status,
+              billing_note: t.billing_note,
+            }))}
         />
       </Card>
 
       <Card>
         <CardHeader title="Transfer history" description="All transfers sent to this client." />
-        <TransferTable transfers={transferList} />
+        <TransferTable transfers={transferList} adminDeletable />
       </Card>
     </div>
   );

@@ -10,9 +10,13 @@ export default async function EmployeeDashboardPage() {
   const { supabase, profile } = await requireEmployee();
   const today = todayISO();
 
+  // Never select `value` here — employees only ever see their own PKR pay
+  // (on the "My pay" page), never the client's dollar value.
   const { data: transfers } = await supabase
     .from("transfers")
-    .select("*")
+    .select(
+      "id, client_id, transfer_date, transfer_time, lead_name, state, insurance_type, status, decline_reason, billing_status, employee_approved"
+    )
     .eq("submitted_by", profile.employee_id!)
     .order("created_at", { ascending: false });
 
@@ -48,7 +52,7 @@ export default async function EmployeeDashboardPage() {
             description="Use Submit Lead to enter your first transfer."
           />
         ) : (
-          <TransferTable transfers={recent} showApproval />
+          <TransferTable transfers={recent} showApproval hideValue />
         )}
       </Card>
     </div>

@@ -149,18 +149,28 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
   const router = useRouter();
   const [loading, setLoading] = useState<"billable" | "refund" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showRefundNote, setShowRefundNote] = useState(false);
+  const [note, setNote] = useState(transfer.billing_note ?? "");
 
-  async function decide(status: "billable" | "refund") {
+  async function decide(status: "billable" | "refund", noteValue?: string) {
+    if (status === "refund" && !noteValue?.trim()) {
+      setError("Please explain why this transfer is a refund.");
+      setShowRefundNote(true);
+      return;
+    }
     setLoading(status);
     setError(null);
-    const result = await setTransferBilling(transfer.id, status);
+    const result = await setTransferBilling(transfer.id, status, noteValue);
     setLoading(null);
     if (!result.ok) {
       setError(result.error);
       return;
     }
+    setShowRefundNote(false);
     router.refresh();
   }
+
+  const alreadyDecided = transfer.billing_status != null;
 
   return (
     <Card className="p-5">
@@ -176,7 +186,14 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
           <p className="text-sm text-muted">
             {transfer.state ?? "—"} · {transfer.insurance_type ?? "—"} · {transfer.phone ?? "—"}
           </p>
-          <p className="mt-1 text-xs text-muted">Call accepted — mark the outcome once it's ended.</p>
+          <p className="mt-1 text-xs text-muted">
+            {alreadyDecided
+              ? `Currently marked ${transfer.billing_status} — editable until invoiced.`
+              : "Call accepted — mark the outcome once it's ended."}
+          </p>
+          {transfer.billing_status === "refund" && transfer.billing_note && (
+            <p className="mt-1 text-xs text-muted">Reason: {transfer.billing_note}</p>
+          )}
         </div>
         <p className="text-lg font-semibold text-primary">{formatCurrency(transfer.value)}</p>
       </div>
@@ -185,11 +202,34 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
           <CheckCircle2 className="h-4 w-4" />
           {loading === "billable" ? "Saving..." : "Billable"}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => decide("refund")} disabled={loading !== null}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowRefundNote(true)}
+          disabled={loading !== null}
+        >
           <XCircle className="h-4 w-4" />
           {loading === "refund" ? "Saving..." : "Refund"}
         </Button>
       </div>
+      {showRefundNote && (
+        <div className="mt-3 flex flex-col gap-2 rounded-lg bg-danger-soft/40 p-3">
+          <Textarea
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Why is this a refund?"
+          />
+          <div className="flex gap-2">
+            <Button variant="danger" size="sm" onClick={() => decide("refund", note)} disabled={loading !== null}>
+              {loading === "refund" ? "Saving..." : "Confirm refund"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowRefundNote(false)} disabled={loading !== null}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </Card>
   );

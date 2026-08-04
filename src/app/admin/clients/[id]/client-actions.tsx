@@ -8,9 +8,11 @@ import {
   generateInvoiceForClient,
   updateClientOperations,
   adminSetTransferBilling,
+  archiveClient,
+  restoreClient,
 } from "@/app/admin/actions";
 import { updateClientRate } from "@/app/admin/financial-actions";
-import { Button, Badge, Input, Label, Select } from "@/components/ui";
+import { Button, Badge, Input, Label, Select, Textarea } from "@/components/ui";
 
 export function StatusToggle({
   clientId,
@@ -33,6 +35,52 @@ export function StatusToggle({
     <Button variant="outline" size="sm" onClick={toggle} disabled={loading}>
       {status === "active" ? "Pause client" : "Reactivate client"}
     </Button>
+  );
+}
+
+export function ArchiveClientControl({
+  clientId,
+  archivedAt,
+}: {
+  clientId: string;
+  archivedAt: string | null;
+}) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleToggle() {
+    setLoading(true);
+    if (archivedAt) {
+      await restoreClient(clientId);
+    } else {
+      await archiveClient(clientId);
+    }
+    setLoading(false);
+    setConfirming(false);
+    router.refresh();
+  }
+
+  if (!confirming) {
+    return (
+      <Button variant="danger" size="sm" onClick={() => setConfirming(true)} disabled={loading}>
+        {archivedAt ? "Restore client" : "Archive client"}
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-foreground">
+        {archivedAt ? "Restore this client?" : "Archive? They can't log in until restored."}
+      </span>
+      <Button variant="danger" size="sm" onClick={handleToggle} disabled={loading}>
+        {loading ? "Working..." : "Confirm"}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={loading}>
+        Cancel
+      </Button>
+    </div>
   );
 }
 
@@ -327,27 +375,100 @@ export function ClientOperationsPanel({
   );
 }
 
-export function AdminBillingDecisionList({
-  transfers,
-}: {
-  transfers: { id: string; lead_name: string | null; transfer_date: string; value: number }[];
-}) {
-  const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+interface BillingDecisionTransfer {
+  id: string;
+  lead_name: string | null;
+  transfer_date: string;
+  value: number;
+  billing_status: "billable" | "refund" | null;
+  billing_note: string | null;
+}
 
-  async function decide(id: string, status: "billable" | "refund") {
-    setLoading(`${id}-${status}`);
+function BillingDecisionRow({ transfer: t }: { transfer: BillingDecisionTransfer }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState<"billable" | "refund" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showRefundNote, setShowRefundNote] = useState(false);
+  const [note, setNote] = useState(t.billing_note ?? "");
+
+  async function decide(status: "billable" | "refund", noteValue?: string) {
+    if (status === "refund" && !noteValue?.trim()) {
+      setError("Please explain why this transfer is a refund.");
+      setShowRefundNote(true);
+      return;
+    }
+    setLoading(status);
     setError(null);
-    const result = await adminSetTransferBilling(id, status);
+    const result = await adminSetTransferBilling(t.id, status, noteValue);
     setLoading(null);
     if (!result.ok) {
       setError(result.error);
       return;
     }
+    setShowRefundNote(false);
     router.refresh();
   }
 
+  return (
+    <div className="flex flex-col gap-2 px-6 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">{t.lead_name ?? "Unnamed lead"}</p>
+          <p className="text-xs text-muted">
+            {t.transfer_date} · {t.value}
+            {t.billing_status && ` · currently ${t.billing_status}`}
+          </p>
+          {t.billing_status === "refund" && t.billing_note && (
+            <p className="text-xs text-muted">Reason: {t.billing_note}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="success"
+            size="sm"
+            onClick={() => decide("billable")}
+            disabled={loading !== null}
+          >
+            {loading === "billable" ? "Saving..." : "Billable"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowRefundNote(true)}
+            disabled={loading !== null}
+          >
+            {loading === "refund" ? "Saving..." : "Refund"}
+          </Button>
+        </div>
+      </div>
+      {showRefundNote && (
+        <div className="flex flex-col gap-2 rounded-lg bg-danger-soft/40 p-3">
+          <Textarea
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Why is this a refund?"
+          />
+          <div className="flex gap-2">
+            <Button variant="danger" size="sm" onClick={() => decide("refund", note)} disabled={loading !== null}>
+              Confirm refund
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowRefundNote(false)} disabled={loading !== null}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+      {error && <p className="text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
+
+export function AdminBillingDecisionList({
+  transfers,
+}: {
+  transfers: BillingDecisionTransfer[];
+}) {
   if (transfers.length === 0) {
     return <p className="px-6 py-8 text-center text-sm text-muted">Nothing awaiting a billing decision.</p>;
   }
@@ -355,34 +476,8 @@ export function AdminBillingDecisionList({
   return (
     <div className="flex flex-col divide-y divide-border">
       {transfers.map((t) => (
-        <div key={t.id} className="flex items-center justify-between gap-3 px-6 py-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">{t.lead_name ?? "Unnamed lead"}</p>
-            <p className="text-xs text-muted">
-              {t.transfer_date} · {t.value}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="success"
-              size="sm"
-              onClick={() => decide(t.id, "billable")}
-              disabled={loading !== null}
-            >
-              {loading === `${t.id}-billable` ? "Saving..." : "Billable"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => decide(t.id, "refund")}
-              disabled={loading !== null}
-            >
-              {loading === `${t.id}-refund` ? "Saving..." : "Refund"}
-            </Button>
-          </div>
-        </div>
+        <BillingDecisionRow key={t.id} transfer={t} />
       ))}
-      {error && <p className="px-6 py-3 text-sm text-danger">{error}</p>}
     </div>
   );
 }
