@@ -1,4 +1,4 @@
-# Transferly — Setup & Deployment Guide
+# VOXPACT — Setup & Deployment Guide
 
 This gets your client portal live at a real URL using free-tier Supabase
 (database + login) and Vercel (hosting). Total time: about 15–20 minutes.
@@ -22,7 +22,7 @@ This gets your client portal live at a real URL using free-tier Supabase
 You can re-run this file safely later if needed — it won't duplicate data.
 
 **If you already ran `schema.sql` before** (i.e. you deployed an earlier
-version of Transferly), run the migration files in order:
+version of VOXPACT), run the migration files in order:
 `supabase/migrations/002_employees_and_leads.sql`, then
 `supabase/migrations/003_financials.sql`, then
 `supabase/migrations/004_workflow_and_operations.sql`. Each adds new
@@ -93,7 +93,7 @@ from your own computer:
 1. As admin, go to **Clients > Add client**. Fill in their business info
    and set a temporary password for them — share it with them directly.
 2. Go to **Upload Transfers**, choose a CSV file, match its columns to
-   Transferly's fields (client, date, lead name, phone, state, insurance
+   VOXPACT's fields (client, date, lead name, phone, state, insurance
    type, value), preview, and import.
 3. Your client logs in at the same URL and sees the transfer waiting for
    them to accept or decline.
@@ -174,7 +174,7 @@ owed, not money you have.
 **Currency**: toggle PKR/USD at the top. Every entry keeps whatever
 currency it was logged in — nothing is silently converted. When you switch
 the view to a currency different from how an entry was logged, converting
-it needs that specific date's exchange rate. If Transferly doesn't have a
+it needs that specific date's exchange rate. If VOXPACT doesn't have a
 rate for that date yet, it shows a banner asking you to enter it right
 there — and that date's amounts are left out of the totals (not guessed
 at) until you do. Once entered, that rate is remembered permanently for
@@ -237,7 +237,7 @@ instead of a generic error. Fix that one thing and refresh.
 ## About the CSV upload
 
 There's no fixed CSV template — you upload whatever columns your CSV
-already has, and match them to Transferly's fields on screen each time.
+already has, and match them to VOXPACT's fields on screen each time.
 Only **client** and **date** are required; everything else is optional.
 The "client" column must match an existing client's business name exactly
 (case-insensitive) — rows that don't match are flagged and skipped, so one
@@ -257,7 +257,7 @@ Then open http://localhost:3000.
 
 ## What's included vs. what's still manual
 
-- Billing: Transferly generates a printable/downloadable invoice (via your
+- Billing: VOXPACT generates a printable/downloadable invoice (via your
   browser's "Print > Save as PDF") from each client's accepted, unbilled
   transfers. It does not collect payment — you invoice/collect outside the
   app (Stripe, bank transfer, etc.), matching what you asked for.

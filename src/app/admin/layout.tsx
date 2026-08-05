@@ -37,7 +37,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-background">
       <RealtimeRefresher table="transfers" />
-      <AppNav brand="Transferly Admin" links={ADMIN_LINKS} userLabel={profile.full_name ?? undefined} />
+      <AppNav brand="VOXPACT Admin" links={ADMIN_LINKS} userLabel={profile.full_name ?? undefined} />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   );

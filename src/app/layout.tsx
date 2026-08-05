@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Transferly — Client Portal",
+  title: "VOXPACT — Live Transfer Portal",
   description: "Live transfer management portal",
 };
 

@@ -4,14 +4,18 @@ import { cn } from "@/lib/utils";
 export function Card({
   children,
   className,
+  hover = false,
 }: {
   children: ReactNode;
   className?: string;
+  /** Adds a subtle lift + shadow on hover, for cards that link somewhere. */
+  hover?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-surface shadow-sm",
+        "rounded-xl border border-border bg-surface shadow-sm transition-all duration-200",
+        hover && "hover:-translate-y-0.5 hover:shadow-md",
         className
       )}
     >
@@ -43,12 +47,12 @@ export function CardHeader({
 }
 
 const buttonVariants = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-  accent: "bg-accent text-accent-foreground hover:bg-accent/90",
-  outline: "border border-border bg-surface text-foreground hover:bg-primary-soft",
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md",
+  accent: "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm hover:shadow-md",
+  outline: "border border-border bg-surface text-foreground hover:bg-primary-soft hover:border-primary/30",
   ghost: "text-foreground hover:bg-primary-soft",
-  danger: "bg-danger text-white hover:bg-danger/90",
-  success: "bg-success text-white hover:bg-success/90",
+  danger: "bg-danger text-white hover:bg-danger/90 shadow-sm hover:shadow-md",
+  success: "bg-success text-white hover:bg-success/90 shadow-sm hover:shadow-md",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -65,7 +69,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
         size === "sm" ? "px-3 py-1.5 text-sm" : "px-4 py-2.5 text-sm",
         buttonVariants[variant],
         className
@@ -106,7 +110,7 @@ export function StatCard({
   icon?: ReactNode;
 }) {
   return (
-    <Card className="p-5">
+    <Card className="p-5 hover:shadow-md">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted">{label}</p>
         {icon && <div className="text-accent">{icon}</div>}
@@ -139,7 +143,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
+        "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
         props.className
       )}
     />
@@ -151,7 +155,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       className={cn(
-        "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
+        "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
         props.className
       )}
     />
@@ -163,7 +167,7 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea
       {...props}
       className={cn(
-        "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
+        "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
         props.className
       )}
     />

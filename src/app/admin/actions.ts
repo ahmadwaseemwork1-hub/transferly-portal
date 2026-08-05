@@ -362,8 +362,8 @@ export async function sendInvoiceToClient(invoiceId: string): Promise<ActionResu
       body: JSON.stringify({
         from: fromEmail,
         to: client.email,
-        subject: `Invoice ${invoice.invoice_number} from Transferly`,
-        html: `<p>Hi ${client.business_name},</p><p>Your invoice <strong>${invoice.invoice_number}</strong> is ready. Log in to your Transferly portal to view and download it.</p>`,
+        subject: `Invoice ${invoice.invoice_number} from VOXPACT`,
+        html: `<p>Hi ${client.business_name},</p><p>Your invoice <strong>${invoice.invoice_number}</strong> is ready. Log in to your VOXPACT portal to view and download it.</p>`,
       }),
     });
     return { ok: true, data: { emailed: resp.ok } };

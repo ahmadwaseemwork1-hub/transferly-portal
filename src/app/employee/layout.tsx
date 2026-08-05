@@ -35,7 +35,7 @@ export default async function EmployeeLayout({
     <div className="min-h-screen bg-background">
       <RealtimeRefresher table="transfers" filterColumn="submitted_by" filterValue={profile.employee_id ?? ""} />
       <AppNav
-        brand="Transferly"
+        brand="VOXPACT"
         links={EMPLOYEE_LINKS}
         userLabel={profile.full_name ?? undefined}
       />

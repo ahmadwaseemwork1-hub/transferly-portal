@@ -2,6 +2,7 @@ import type { Client, Invoice, Transfer } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PrintButton } from "./print-button";
 import { DownloadInvoiceButton } from "./download-invoice-button";
+import { VoxpactLogo } from "./logo";
 
 export function InvoiceDocument({
   invoice,
@@ -20,9 +21,12 @@ export function InvoiceDocument({
       </div>
       <div id="invoice-document" className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
         <div className="flex items-start justify-between border-b border-border pb-6">
-          <div>
-            <p className="font-serif text-xl font-semibold text-primary">Transferly</p>
-            <p className="mt-1 text-sm text-muted">Live transfer billing</p>
+          <div className="flex items-center gap-2">
+            <VoxpactLogo className="h-6 w-6 text-primary" />
+            <div>
+              <p className="font-serif text-xl font-semibold text-primary">VOXPACT</p>
+              <p className="text-sm text-muted">Live transfer billing</p>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold text-foreground">{invoice.invoice_number}</p>

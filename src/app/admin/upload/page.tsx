@@ -94,7 +94,7 @@ export default function UploadPage() {
           Upload today&apos;s transfers
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Upload any CSV, match its columns to Transferly&apos;s fields, then confirm.
+          Upload any CSV, match its columns to VOXPACT&apos;s fields, then confirm.
         </p>
       </div>
 

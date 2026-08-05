@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { VoxpactLogo } from "@/components/logo";
 
 export interface NavLinkItem {
   href: string;
@@ -36,7 +37,8 @@ export function AppNav({
     <header className="no-print sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-8">
-          <span className="font-serif text-lg font-semibold tracking-tight text-primary">
+          <span className="flex items-center gap-2 font-serif text-lg font-semibold tracking-tight text-primary">
+            <VoxpactLogo className="h-6 w-6 shrink-0 text-primary" />
             {brand}
           </span>
           <nav className="hidden items-center gap-1 md:flex">
@@ -91,7 +93,7 @@ export function AppNav({
                 href={link.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "rounded-lg px-3 py-2.5 text-sm font-medium",
+                  "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   pathname === link.href
                     ? "bg-primary-soft text-primary"
                     : "text-muted hover:bg-primary-soft hover:text-primary"

@@ -39,7 +39,7 @@ export default async function ClientLayout({
     <div className="min-h-screen bg-background">
       <RealtimeRefresher table="transfers" filterColumn="client_id" filterValue={profile.client_id ?? ""} />
       <AppNav
-        brand="Transferly"
+        brand="VOXPACT"
         links={CLIENT_LINKS}
         userLabel={client?.business_name ?? profile.full_name ?? undefined}
       />

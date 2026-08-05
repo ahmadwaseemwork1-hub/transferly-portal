@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Card, Input, Label } from "@/components/ui";
+import { VoxpactLogo } from "@/components/logo";
 
 // Supabase's own auth error messages are safe to show as-is — they never
 // leak passwords or internal details, and seeing the real reason (rate
@@ -101,10 +102,13 @@ function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="font-serif text-2xl font-semibold text-primary">Transferly</h1>
-          <p className="mt-1 text-sm text-muted">Live transfer management portal</p>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
+            <VoxpactLogo className="h-7 w-7 text-white" />
+          </div>
+          <h1 className="font-serif text-3xl font-semibold tracking-tight text-primary">VOXPACT</h1>
+          <p className="mt-1.5 text-sm text-muted">Live transfer management portal</p>
         </div>
-        <Card className="p-6">
+        <Card className="p-7 shadow-lg">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <Label>Email</Label>
