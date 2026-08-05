@@ -26,22 +26,24 @@ const EMPTY_LEAD: EditableLeadInput = {
   extra: [],
 };
 
-const FIELD_ROWS: { label: string; key: keyof Omit<EditableLeadInput, "extra"> }[] = [
-  { label: "First name", key: "first_name" },
-  { label: "Last name", key: "last_name" },
-  { label: "Date of birth", key: "date_of_birth" },
+const FIELD_ROWS: { label: string; key: keyof Omit<EditableLeadInput, "extra">; required?: boolean }[] = [
+  { label: "First name", key: "first_name", required: true },
+  { label: "Last name", key: "last_name", required: true },
+  { label: "Date of birth", key: "date_of_birth", required: true },
   { label: "Email", key: "email" },
-  { label: "Phone", key: "phone" },
-  { label: "Address", key: "address" },
+  { label: "Phone", key: "phone", required: true },
+  { label: "Address", key: "address", required: true },
   { label: "City", key: "city" },
   { label: "State", key: "state" },
   { label: "Zip", key: "zip_code" },
-  { label: "Home owner / renter?", key: "home_status" },
-  { label: "No. of cars", key: "vehicle_count" },
-  { label: "Make and model of car(s)", key: "vehicles" },
-  { label: "Current insurance carrier", key: "current_carrier" },
+  { label: "Home owner / renter?", key: "home_status", required: true },
+  { label: "No. of cars", key: "vehicle_count", required: true },
+  { label: "Make and model of car(s)", key: "vehicles", required: true },
+  { label: "Current insurance carrier", key: "current_carrier", required: true },
   { label: "Policy term", key: "policy_term" },
 ];
+
+const REQUIRED_KEYS = FIELD_ROWS.filter((f) => f.required).map((f) => f.key);
 
 export function LeadPasteForm() {
   const router = useRouter();
@@ -121,14 +123,28 @@ export function LeadPasteForm() {
     }));
   }
 
+  const missingFields = REQUIRED_KEYS.filter((key) => {
+    const value = lead[key]?.trim();
+    if (!value) return true;
+    if (key === "vehicle_count") {
+      const n = Number.parseInt(value, 10);
+      return !Number.isFinite(n) || n < 1;
+    }
+    return false;
+  }).map((key) => FIELD_ROWS.find((f) => f.key === key)!.label);
+
   const canSubmit =
-    hasParsed && !parseError && (lead.first_name.trim() || lead.last_name.trim()) && clientId && agentId;
+    hasParsed && !parseError && missingFields.length === 0 && Boolean(clientId) && Boolean(agentId);
 
   async function handleSubmit() {
     setError(null);
     setSuccess(false);
-    if (!canSubmit) {
-      setError("Fix the lead fields, and choose a client and agent, before submitting.");
+    if (missingFields.length > 0) {
+      setError(`Please fill in required fields: ${missingFields.join(", ")}.`);
+      return;
+    }
+    if (!clientId || !agentId) {
+      setError("Choose a client and agent before submitting.");
       return;
     }
     setSubmitting(true);
@@ -181,7 +197,7 @@ export function LeadPasteForm() {
         <Card>
           <CardHeader
             title="2. Review and correct every field"
-            description="Everything below is editable — fix anything the parser got wrong before submitting."
+            description="Everything below is editable — fix anything the parser got wrong before submitting. Fields marked * are required."
             action={
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
                 <CheckCircle2 className="h-4 w-4" /> Parsed
@@ -189,13 +205,18 @@ export function LeadPasteForm() {
             }
           />
           <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-            {FIELD_ROWS.map(({ label, key }) => (
+            {FIELD_ROWS.map(({ label, key, required }) => (
               <div key={key}>
-                <Label>{label}</Label>
+                <Label>
+                  {label}
+                  {required && <span className="text-danger"> *</span>}
+                </Label>
                 <Input
                   value={lead[key]}
                   onChange={(e) => updateField(key, e.target.value)}
                   placeholder="—"
+                  required={required}
+                  className={required && !lead[key]?.trim() ? "border-danger/40" : undefined}
                 />
               </div>
             ))}

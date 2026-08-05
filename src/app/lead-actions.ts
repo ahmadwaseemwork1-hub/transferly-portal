@@ -81,8 +81,21 @@ export async function submitLeadTransfer(input: {
   const firstName = (lead.first_name ?? "").trim();
   const lastName = (lead.last_name ?? "").trim();
   const fullName = [firstName, lastName].filter(Boolean).join(" ");
-  if (!fullName) {
-    return { ok: false, error: "Enter at least a first or last name." };
+  const dobParsed = normalizeDate(lead.date_of_birth ?? "");
+  const vehicleCount = Number.parseInt((lead.vehicle_count ?? "").trim(), 10);
+
+  const missing: string[] = [];
+  if (!firstName) missing.push("First name");
+  if (!lastName) missing.push("Last name");
+  if (!dobParsed) missing.push("Date of birth");
+  if (!(lead.phone ?? "").trim()) missing.push("Phone");
+  if (!(lead.address ?? "").trim()) missing.push("Address");
+  if (!(lead.home_status ?? "").trim()) missing.push("Home owner / renter?");
+  if (!Number.isFinite(vehicleCount) || vehicleCount < 1) missing.push("No. of cars");
+  if (!(lead.vehicles ?? "").trim()) missing.push("Make and model of car(s)");
+  if (!(lead.current_carrier ?? "").trim()) missing.push("Current insurance carrier");
+  if (missing.length > 0) {
+    return { ok: false, error: `Please fill in required fields: ${missing.join(", ")}.` };
   }
 
   if (!input.clientId) {
@@ -168,9 +181,6 @@ export async function submitLeadTransfer(input: {
     }
   }
 
-  const date_of_birth = normalizeDate(lead.date_of_birth ?? "");
-  const vehicleCountNum = Number.parseInt((lead.vehicle_count ?? "").trim(), 10);
-
   const { data: transfer, error } = await admin
     .from("transfers")
     .insert({
@@ -183,13 +193,13 @@ export async function submitLeadTransfer(input: {
       insurance_type: "Auto",
       value: client.price_per_transfer ?? 0,
       status: "pending",
-      date_of_birth,
+      date_of_birth: dobParsed,
       email: (lead.email ?? "").trim() || null,
       address: (lead.address ?? "").trim() || null,
       city: (lead.city ?? "").trim() || null,
       zip_code: (lead.zip_code ?? "").trim() || null,
       home_status: (lead.home_status ?? "").trim() || null,
-      vehicle_count: Number.isFinite(vehicleCountNum) ? vehicleCountNum : null,
+      vehicle_count: vehicleCount,
       vehicles: (lead.vehicles ?? "").trim() || null,
       current_carrier: (lead.current_carrier ?? "").trim() || null,
       policy_term: (lead.policy_term ?? "").trim() || null,

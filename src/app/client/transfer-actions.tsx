@@ -6,6 +6,7 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { respondToTransfer, setTransferBilling, toggleCampaignStatus } from "@/app/client/actions";
 import { Button, Card, Textarea } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { LeadDetails } from "@/components/lead-details";
 import type { Transfer } from "@/lib/types";
 
 const DECLINE_REASONS = [
@@ -57,19 +58,14 @@ export function PendingTransferCard({ transfer }: { transfer: Transfer }) {
   return (
     <Card className="p-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">
-            {formatDate(transfer.transfer_date)}
-            {transfer.transfer_time && ` · ${transfer.transfer_time}`}
-          </p>
-          <p className="mt-1 font-semibold text-foreground">
-            {transfer.lead_name ?? "Unnamed lead"}
-          </p>
-          <p className="text-sm text-muted">
-            {transfer.state ?? "—"} · {transfer.insurance_type ?? "—"} · {transfer.phone ?? "—"}
-          </p>
-        </div>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">
+          {formatDate(transfer.transfer_date)}
+          {transfer.transfer_time && ` · ${transfer.transfer_time}`}
+        </p>
         <p className="text-lg font-semibold text-primary">{formatCurrency(transfer.value)}</p>
+      </div>
+      <div className="mt-3 rounded-lg bg-background/60 p-3">
+        <LeadDetails transfer={transfer} />
       </div>
 
       {!showDecline ? (
@@ -180,12 +176,6 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
             {formatDate(transfer.transfer_date)}
             {transfer.transfer_time && ` · ${transfer.transfer_time}`}
           </p>
-          <p className="mt-1 font-semibold text-foreground">
-            {transfer.lead_name ?? "Unnamed lead"}
-          </p>
-          <p className="text-sm text-muted">
-            {transfer.state ?? "—"} · {transfer.insurance_type ?? "—"} · {transfer.phone ?? "—"}
-          </p>
           <p className="mt-1 text-xs text-muted">
             {alreadyDecided
               ? `Currently marked ${transfer.billing_status} — editable until invoiced.`
@@ -196,6 +186,9 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
           )}
         </div>
         <p className="text-lg font-semibold text-primary">{formatCurrency(transfer.value)}</p>
+      </div>
+      <div className="mt-3 rounded-lg bg-background/60 p-3">
+        <LeadDetails transfer={transfer} />
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="success" size="sm" onClick={() => decide("billable")} disabled={loading !== null}>
