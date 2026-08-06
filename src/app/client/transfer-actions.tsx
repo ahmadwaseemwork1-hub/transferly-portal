@@ -180,8 +180,8 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
     <Card
       className={cn(
         "p-5 transition-colors duration-500",
-        justSaved === "billable" && "bg-success-soft ring-1 ring-success/50",
-        justSaved === "refund" && "bg-danger-soft/60 ring-1 ring-danger/40"
+        transfer.billing_status === "billable" && "bg-success-soft ring-1 ring-success/50",
+        transfer.billing_status === "refund" && "bg-danger-soft/60 ring-1 ring-danger/40"
       )}
     >
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
