@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { respondToTransfer, setTransferBilling, toggleCampaignStatus } from "@/app/client/actions";
 import { Button, Card, Textarea } from "@/components/ui";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { LeadDetails } from "@/components/lead-details";
 import type { Transfer } from "@/lib/types";
 
@@ -147,6 +147,13 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
   const [error, setError] = useState<string | null>(null);
   const [showRefundNote, setShowRefundNote] = useState(false);
   const [note, setNote] = useState(transfer.billing_note ?? "");
+  const [justSaved, setJustSaved] = useState<"billable" | "refund" | null>(null);
+
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = setTimeout(() => setJustSaved(null), 2000);
+    return () => clearTimeout(timer);
+  }, [justSaved]);
 
   async function decide(status: "billable" | "refund", noteValue?: string) {
     if (status === "refund" && !noteValue?.trim()) {
@@ -163,13 +170,20 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
       return;
     }
     setShowRefundNote(false);
+    setJustSaved(status);
     router.refresh();
   }
 
   const alreadyDecided = transfer.billing_status != null;
 
   return (
-    <Card className="p-5">
+    <Card
+      className={cn(
+        "p-5 transition-colors duration-500",
+        justSaved === "billable" && "bg-success-soft ring-1 ring-success/50",
+        justSaved === "refund" && "bg-danger-soft/60 ring-1 ring-danger/40"
+      )}
+    >
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
@@ -183,6 +197,11 @@ export function AwaitingBillingCard({ transfer }: { transfer: Transfer }) {
           </p>
           {transfer.billing_status === "refund" && transfer.billing_note && (
             <p className="mt-1 text-xs text-muted">Reason: {transfer.billing_note}</p>
+          )}
+          {justSaved && (
+            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Saved
+            </p>
           )}
         </div>
         <p className="text-lg font-semibold text-primary">{formatCurrency(transfer.value)}</p>
