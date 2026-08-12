@@ -193,71 +193,71 @@ export function LeadPasteForm() {
         </div>
       </Card>
 
-      {hasParsed && !parseError && (
-        <Card>
-          <CardHeader
-            title="2. Review and correct every field"
-            description="Everything below is editable — fix anything the parser got wrong before submitting. Fields marked * are required."
-            action={
+      <Card>
+        <CardHeader
+          title="2. Review and correct every field"
+          description="Paste a lead above and this fills in automatically — everything below is editable, so fix anything the parser got wrong before submitting. Fields marked * are required."
+          action={
+            hasParsed && !parseError ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
                 <CheckCircle2 className="h-4 w-4" /> Parsed
               </span>
-            }
-          />
-          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-            {FIELD_ROWS.map(({ label, key, required }) => (
-              <div key={key}>
-                <Label>
-                  {label}
-                  {required && <span className="text-danger"> *</span>}
-                </Label>
-                <Input
-                  value={lead[key]}
-                  onChange={(e) => updateField(key, e.target.value)}
-                  placeholder="—"
-                  required={required}
-                  className={required && !lead[key]?.trim() ? "border-danger/40" : undefined}
-                />
-              </div>
-            ))}
+            ) : undefined
+          }
+        />
+        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
+          {FIELD_ROWS.map(({ label, key, required }) => (
+            <div key={key}>
+              <Label>
+                {label}
+                {required && <span className="text-danger"> *</span>}
+              </Label>
+              <Input
+                value={lead[key]}
+                onChange={(e) => updateField(key, e.target.value)}
+                placeholder="—"
+                required={required}
+                className={required && !lead[key]?.trim() ? "border-danger/40" : undefined}
+              />
+            </div>
+          ))}
+        </div>
+
+        {lead.extra.length > 0 && (
+          <div className="border-t border-border p-6">
+            <p className="mb-3 text-sm font-medium text-foreground">
+              Additional columns (unconfirmed meaning — relabel if you know what these actually are)
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {lead.extra.map((field, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input
+                    value={field.label}
+                    onChange={(e) => updateExtra(i, { label: e.target.value })}
+                    className="max-w-[55%] text-xs"
+                  />
+                  <Input
+                    value={field.value}
+                    onChange={(e) => updateExtra(i, { value: e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          {lead.extra.length > 0 && (
-            <div className="border-t border-border p-6">
-              <p className="mb-3 text-sm font-medium text-foreground">
-                Additional columns (unconfirmed meaning — relabel if you know what these actually are)
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {lead.extra.map((field, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input
-                      value={field.label}
-                      onChange={(e) => updateExtra(i, { label: e.target.value })}
-                      className="max-w-[55%] text-xs"
-                    />
-                    <Input
-                      value={field.value}
-                      onChange={(e) => updateExtra(i, { value: e.target.value })}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {parseWarnings.length > 0 && (
-            <div className="border-t border-border p-6">
-              <ul className="flex flex-col gap-1">
-                {parseWarnings.map((w, i) => (
-                  <li key={i} className="text-xs text-warning">
-                    ⚠ {w}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
-      )}
+        {parseWarnings.length > 0 && (
+          <div className="border-t border-border p-6">
+            <ul className="flex flex-col gap-1">
+              {parseWarnings.map((w, i) => (
+                <li key={i} className="text-xs text-warning">
+                  ⚠ {w}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
 
       <Card>
         <CardHeader title="3. Assign & confirm" />
