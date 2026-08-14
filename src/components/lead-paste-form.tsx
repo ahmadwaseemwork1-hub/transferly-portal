@@ -217,6 +217,7 @@ export function LeadPasteForm() {
                 onChange={(e) => updateField(key, e.target.value)}
                 placeholder="—"
                 required={required}
+                autoComplete="off"
                 className={required && !lead[key]?.trim() ? "border-danger/40" : undefined}
               />
             </div>
