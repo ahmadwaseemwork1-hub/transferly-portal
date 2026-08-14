@@ -133,8 +133,10 @@ export function LeadPasteForm() {
     return false;
   }).map((key) => FIELD_ROWS.find((f) => f.key === key)!.label);
 
-  const canSubmit =
-    hasParsed && !parseError && missingFields.length === 0 && Boolean(clientId) && Boolean(agentId);
+  // Pasting is a shortcut, not a requirement — every field below is always
+  // editable by hand, so submission only depends on the fields themselves
+  // being filled in, not on whether a paste was ever parsed.
+  const canSubmit = missingFields.length === 0 && Boolean(clientId) && Boolean(agentId);
 
   async function handleSubmit() {
     setError(null);
