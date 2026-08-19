@@ -198,7 +198,7 @@ export function LeadPasteForm() {
       <Card>
         <CardHeader
           title="2. Review and correct every field"
-          description="Paste a lead above and this fills in automatically — everything below is editable, so fix anything the parser got wrong before submitting. Fields marked * are required."
+          description="Paste a lead above and this fills in automatically — everything below is editable, so fix anything the parser got wrong before submitting."
           action={
             hasParsed && !parseError ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
@@ -210,10 +210,7 @@ export function LeadPasteForm() {
         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
           {FIELD_ROWS.map(({ label, key, required }) => (
             <div key={key}>
-              <Label>
-                {label}
-                {required && <span className="text-danger"> *</span>}
-              </Label>
+              <Label>{label}</Label>
               <Input
                 value={lead[key]}
                 onChange={(e) => updateField(key, e.target.value)}
