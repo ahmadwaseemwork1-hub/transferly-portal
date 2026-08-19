@@ -82,25 +82,8 @@ export async function submitLeadTransfer(input: {
   const lastName = (lead.last_name ?? "").trim();
   const fullName = [firstName, lastName].filter(Boolean).join(" ");
   const dobParsed = normalizeDate(lead.date_of_birth ?? "");
-  const vehicleCount = Number.parseInt((lead.vehicle_count ?? "").trim(), 10);
-
-  const missing: string[] = [];
-  if (!firstName) missing.push("First name");
-  if (!lastName) missing.push("Last name");
-  if (!dobParsed) missing.push("Date of birth");
-  if (!(lead.email ?? "").trim()) missing.push("Email");
-  if (!(lead.phone ?? "").trim()) missing.push("Phone");
-  if (!(lead.address ?? "").trim()) missing.push("Address");
-  if (!(lead.city ?? "").trim()) missing.push("City");
-  if (!(lead.state ?? "").trim()) missing.push("State");
-  if (!(lead.zip_code ?? "").trim()) missing.push("Zip");
-  if (!(lead.home_status ?? "").trim()) missing.push("Home owner / renter?");
-  if (!Number.isFinite(vehicleCount) || vehicleCount < 1) missing.push("No. of cars");
-  if (!(lead.vehicles ?? "").trim()) missing.push("Make and model of car(s)");
-  if (!(lead.current_carrier ?? "").trim()) missing.push("Current insurance carrier");
-  if (missing.length > 0) {
-    return { ok: false, error: `Please fill in required fields: ${missing.join(", ")}.` };
-  }
+  const vehicleCountParsed = Number.parseInt((lead.vehicle_count ?? "").trim(), 10);
+  const vehicleCount = Number.isFinite(vehicleCountParsed) ? vehicleCountParsed : null;
 
   if (!input.clientId) {
     return { ok: false, error: "Choose which client this lead is for." };

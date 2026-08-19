@@ -26,24 +26,22 @@ const EMPTY_LEAD: EditableLeadInput = {
   extra: [],
 };
 
-const FIELD_ROWS: { label: string; key: keyof Omit<EditableLeadInput, "extra">; required?: boolean }[] = [
-  { label: "First name", key: "first_name", required: true },
-  { label: "Last name", key: "last_name", required: true },
-  { label: "Date of birth", key: "date_of_birth", required: true },
-  { label: "Email", key: "email", required: true },
-  { label: "Phone", key: "phone", required: true },
-  { label: "Address", key: "address", required: true },
-  { label: "City", key: "city", required: true },
-  { label: "State", key: "state", required: true },
-  { label: "Zip", key: "zip_code", required: true },
-  { label: "Home owner / renter?", key: "home_status", required: true },
-  { label: "No. of cars", key: "vehicle_count", required: true },
-  { label: "Make and model of car(s)", key: "vehicles", required: true },
-  { label: "Current insurance carrier", key: "current_carrier", required: true },
+const FIELD_ROWS: { label: string; key: keyof Omit<EditableLeadInput, "extra"> }[] = [
+  { label: "First name", key: "first_name" },
+  { label: "Last name", key: "last_name" },
+  { label: "Date of birth", key: "date_of_birth" },
+  { label: "Email", key: "email" },
+  { label: "Phone", key: "phone" },
+  { label: "Address", key: "address" },
+  { label: "City", key: "city" },
+  { label: "State", key: "state" },
+  { label: "Zip", key: "zip_code" },
+  { label: "Home owner / renter?", key: "home_status" },
+  { label: "No. of cars", key: "vehicle_count" },
+  { label: "Make and model of car(s)", key: "vehicles" },
+  { label: "Current insurance carrier", key: "current_carrier" },
   { label: "Policy term", key: "policy_term" },
 ];
-
-const REQUIRED_KEYS = FIELD_ROWS.filter((f) => f.required).map((f) => f.key);
 
 export function LeadPasteForm() {
   const router = useRouter();
@@ -123,28 +121,13 @@ export function LeadPasteForm() {
     }));
   }
 
-  const missingFields = REQUIRED_KEYS.filter((key) => {
-    const value = lead[key]?.trim();
-    if (!value) return true;
-    if (key === "vehicle_count") {
-      const n = Number.parseInt(value, 10);
-      return !Number.isFinite(n) || n < 1;
-    }
-    return false;
-  }).map((key) => FIELD_ROWS.find((f) => f.key === key)!.label);
-
-  // Pasting is a shortcut, not a requirement — every field below is always
-  // editable by hand, so submission only depends on the fields themselves
-  // being filled in, not on whether a paste was ever parsed.
-  const canSubmit = missingFields.length === 0 && Boolean(clientId) && Boolean(agentId);
+  // Every field is freely editable and none are required — only a client
+  // and agent must be chosen before a transfer can be submitted.
+  const canSubmit = Boolean(clientId) && Boolean(agentId);
 
   async function handleSubmit() {
     setError(null);
     setSuccess(false);
-    if (missingFields.length > 0) {
-      setError(`Please fill in required fields: ${missingFields.join(", ")}.`);
-      return;
-    }
     if (!clientId || !agentId) {
       setError("Choose a client and agent before submitting.");
       return;
@@ -208,16 +191,14 @@ export function LeadPasteForm() {
           }
         />
         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-          {FIELD_ROWS.map(({ label, key, required }) => (
+          {FIELD_ROWS.map(({ label, key }) => (
             <div key={key}>
               <Label>{label}</Label>
               <Input
                 value={lead[key]}
                 onChange={(e) => updateField(key, e.target.value)}
                 placeholder="—"
-                required={required}
                 autoComplete="off"
-                className={required && !lead[key]?.trim() ? "border-danger/40" : undefined}
               />
             </div>
           ))}
