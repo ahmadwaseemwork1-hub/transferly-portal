@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { parseLeadPaste } from "@/lib/lead-parser";
+import { normalizeDate } from "@/lib/csv";
 import { fetchLeadFormLookup, submitLeadTransfer, type EditableLeadInput } from "@/app/lead-actions";
 import { Button, Card, CardHeader, Input, Label, Select, Textarea } from "@/components/ui";
 import type { LeadExtraField } from "@/lib/types";
@@ -42,6 +43,17 @@ const FIELD_ROWS: { label: string; key: keyof Omit<EditableLeadInput, "extra"> }
   { label: "Current insurance carrier", key: "current_carrier" },
   { label: "Policy term", key: "policy_term" },
 ];
+
+type FieldKey = (typeof FIELD_ROWS)[number]["key"];
+
+/** A value that was typed but can't be saved as-is (blank is always fine). */
+function fieldProblem(key: FieldKey, value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (key === "date_of_birth" && !normalizeDate(v)) return "Not a valid date — use MM/DD/YYYY.";
+  if (key === "vehicle_count" && !Number.isFinite(Number.parseInt(v, 10))) return "Enter a number.";
+  return null;
+}
 
 export function LeadPasteForm() {
   const router = useRouter();
@@ -122,8 +134,17 @@ export function LeadPasteForm() {
   }
 
   // Every field is freely editable and none are required — only a client
-  // and agent must be chosen before a transfer can be submitted.
-  const canSubmit = Boolean(clientId) && Boolean(agentId);
+  // and agent must be chosen before a transfer can be submitted. A value
+  // that can't be saved (e.g. an unreadable date) blocks submit so it
+  // isn't silently dropped on the way to the client.
+  const hasFieldProblem = FIELD_ROWS.some(({ key }) => fieldProblem(key, lead[key]) !== null);
+  const canSubmit = Boolean(clientId) && Boolean(agentId) && !hasFieldProblem;
+
+  // Non-blocking heads-up: blank fields won't be visible to the client.
+  const anyFieldFilled = FIELD_ROWS.some(({ key }) => lead[key].trim());
+  const emptyLabels = FIELD_ROWS.filter(
+    ({ key }) => key !== "policy_term" && !lead[key].trim()
+  ).map(({ label }) => label);
 
   async function handleSubmit() {
     setError(null);
@@ -191,17 +212,23 @@ export function LeadPasteForm() {
           }
         />
         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-          {FIELD_ROWS.map(({ label, key }) => (
-            <div key={key}>
-              <Label>{label}</Label>
-              <Input
-                value={lead[key]}
-                onChange={(e) => updateField(key, e.target.value)}
-                placeholder="—"
-                autoComplete="off"
-              />
-            </div>
-          ))}
+          {FIELD_ROWS.map(({ label, key }) => {
+            const problem = fieldProblem(key, lead[key]);
+            return (
+              <div key={key}>
+                <Label>{label}</Label>
+                <Input
+                  value={lead[key]}
+                  onChange={(e) => updateField(key, e.target.value)}
+                  placeholder="—"
+                  autoComplete="off"
+                  aria-invalid={problem ? true : undefined}
+                  className={problem ? "border-danger" : undefined}
+                />
+                {problem && <p className="mt-1 text-xs text-danger">{problem}</p>}
+              </div>
+            );
+          })}
         </div>
 
         {lead.extra.length > 0 && (
@@ -279,6 +306,11 @@ export function LeadPasteForm() {
           </div>
         </div>
         <div className="flex flex-col gap-3 border-t border-border p-6">
+          {anyFieldFilled && emptyLabels.length > 0 && (
+            <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">
+              Not filled in — the client won&apos;t see: {emptyLabels.join(", ")}.
+            </p>
+          )}
           {error && (
             <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>
           )}

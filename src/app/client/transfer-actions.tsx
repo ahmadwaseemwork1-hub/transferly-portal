@@ -7,6 +7,7 @@ import { respondToTransfer, setTransferBilling, toggleCampaignStatus } from "@/a
 import { Button, Card, Textarea } from "@/components/ui";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { LeadDetails } from "@/components/lead-details";
+import { StatusBadge } from "@/components/status-badge";
 import type { Transfer } from "@/lib/types";
 
 const DECLINE_REASONS = [
@@ -258,24 +259,36 @@ export function CampaignToggle({ campaignStatus }: { campaignStatus: "active" | 
     router.refresh();
   }
 
+  const isActive = campaignStatus === "active";
+
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors duration-300",
+        isActive ? "border-emerald-200 bg-emerald-50/60" : "border-rose-200 bg-rose-50/60"
+      )}
+    >
       <div>
-        <p className="text-sm font-medium text-foreground">Campaign status</p>
-        <p className="text-xs text-muted">
-          {campaignStatus === "active"
-            ? "Active — employees can send you calls right now."
-            : "Paused — employees are told you're not receiving calls."}
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-foreground">Campaign status</p>
+          <StatusBadge tone={isActive ? "success" : "danger"} role="status">
+            {isActive ? "Active" : "Paused"}
+          </StatusBadge>
+        </div>
+        <p className="mt-1 text-xs text-muted">
+          {isActive
+            ? "Employees can send you calls right now."
+            : "Employees are told you're not receiving calls."}
         </p>
       </div>
       <Button
-        variant={campaignStatus === "active" ? "outline" : "success"}
+        variant={isActive ? "danger" : "success"}
         size="sm"
         onClick={toggle}
         disabled={loading}
         className="ml-auto"
       >
-        {loading ? "Saving..." : campaignStatus === "active" ? "Pause campaign" : "Resume campaign"}
+        {loading ? "Saving..." : isActive ? "Pause campaign" : "Resume campaign"}
       </Button>
     </div>
   );

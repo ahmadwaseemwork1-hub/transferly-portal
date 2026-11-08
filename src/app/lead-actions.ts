@@ -81,9 +81,24 @@ export async function submitLeadTransfer(input: {
   const firstName = (lead.first_name ?? "").trim();
   const lastName = (lead.last_name ?? "").trim();
   const fullName = [firstName, lastName].filter(Boolean).join(" ");
-  const dobParsed = normalizeDate(lead.date_of_birth ?? "");
-  const vehicleCountParsed = Number.parseInt((lead.vehicle_count ?? "").trim(), 10);
+  const dobText = (lead.date_of_birth ?? "").trim();
+  const dobParsed = normalizeDate(dobText);
+  const vehicleText = (lead.vehicle_count ?? "").trim();
+  const vehicleCountParsed = Number.parseInt(vehicleText, 10);
   const vehicleCount = Number.isFinite(vehicleCountParsed) ? vehicleCountParsed : null;
+
+  // Fields may be left blank, but a value that was typed must never be
+  // silently thrown away — that's how a date of birth used to vanish
+  // before reaching the client.
+  if (dobText && !dobParsed) {
+    return {
+      ok: false,
+      error: `Date of birth "${dobText}" isn't a valid date — use MM/DD/YYYY, or clear the field.`,
+    };
+  }
+  if (vehicleText && vehicleCount === null) {
+    return { ok: false, error: `No. of cars "${vehicleText}" isn't a number — enter digits only, or clear the field.` };
+  }
 
   if (!input.clientId) {
     return { ok: false, error: "Choose which client this lead is for." };

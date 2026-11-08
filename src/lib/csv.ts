@@ -32,22 +32,57 @@ export function validateMapping(mapping: ColumnMapping): string[] {
   return errors;
 }
 
-/** Accepts YYYY-MM-DD, MM/DD/YYYY, M/D/YY, MM-DD-YYYY. Returns YYYY-MM-DD or null. */
+const MONTH_PREFIXES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/** Builds YYYY-MM-DD, or null when the month/day isn't a real calendar date. */
+function toISODate(y: number, m: number, d: number): string | null {
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1) return null;
+  if (d > new Date(Date.UTC(y, m, 0)).getUTCDate()) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** 2-digit years up to the current year are 20XX, later ones 19XX (so "72" is 1972). */
+function expandYear(yRaw: string): number {
+  if (yRaw.length === 4) return Number(yRaw);
+  const yy = Number(yRaw);
+  return yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy;
+}
+
+function monthFromName(name: string): number | null {
+  const index = MONTH_PREFIXES.indexOf(name.slice(0, 3).toLowerCase());
+  return index === -1 ? null : index + 1;
+}
+
+/**
+ * Accepts YYYY-MM-DD (also with / or .), M/D/YYYY and M/D/YY (also with - or .),
+ * MMDDYYYY, and written months ("Jan 5, 1990", "5 January 1990").
+ * Returns YYYY-MM-DD, or null if it isn't a real calendar date.
+ */
 export function normalizeDate(raw: string): string | null {
   const value = (raw ?? "").trim();
   if (!value) return null;
 
-  const isoMatch = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  const yearFirst = value.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (yearFirst) return toISODate(Number(yearFirst[1]), Number(yearFirst[2]), Number(yearFirst[3]));
+
+  const monthFirst = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})$/);
+  if (monthFirst) {
+    return toISODate(expandYear(monthFirst[3]), Number(monthFirst[1]), Number(monthFirst[2]));
   }
 
-  const slashOrDash = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (slashOrDash) {
-    const [, m, d, yRaw] = slashOrDash;
-    const y = yRaw.length === 2 ? `20${yRaw}` : yRaw;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  const compact = value.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (compact) return toISODate(Number(compact[3]), Number(compact[1]), Number(compact[2]));
+
+  const monthName = value.match(/^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/);
+  if (monthName) {
+    const m = monthFromName(monthName[1]);
+    return m ? toISODate(Number(monthName[3]), m, Number(monthName[2])) : null;
+  }
+
+  const dayFirstName = value.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})$/);
+  if (dayFirstName) {
+    const m = monthFromName(dayFirstName[2]);
+    return m ? toISODate(Number(dayFirstName[3]), m, Number(dayFirstName[1])) : null;
   }
 
   return null;

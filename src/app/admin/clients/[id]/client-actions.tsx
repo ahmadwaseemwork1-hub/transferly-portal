@@ -32,7 +32,12 @@ export function StatusToggle({
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={toggle} disabled={loading}>
+    <Button
+      variant={status === "active" ? "danger" : "success"}
+      size="sm"
+      onClick={toggle}
+      disabled={loading}
+    >
       {status === "active" ? "Pause client" : "Reactivate client"}
     </Button>
   );

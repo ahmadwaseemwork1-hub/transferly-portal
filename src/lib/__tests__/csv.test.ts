@@ -26,6 +26,27 @@ describe("normalizeDate", () => {
     expect(normalizeDate("not a date")).toBeNull();
     expect(normalizeDate("")).toBeNull();
   });
+
+  it("treats late 2-digit years as 19XX so birth dates aren't pushed into the future", () => {
+    expect(normalizeDate("2/18/72")).toBe("1972-02-18");
+    expect(normalizeDate("7/1/26")).toBe("2026-07-01");
+  });
+
+  it("accepts year-first, dotted, compact, and written-month formats", () => {
+    expect(normalizeDate("1990/01/05")).toBe("1990-01-05");
+    expect(normalizeDate("5.1.1990")).toBe("1990-05-01");
+    expect(normalizeDate("01051990")).toBe("1990-01-05");
+    expect(normalizeDate("Jan 5, 1990")).toBe("1990-01-05");
+    expect(normalizeDate("January 5th 1990")).toBe("1990-01-05");
+    expect(normalizeDate("5 Jan 1990")).toBe("1990-01-05");
+  });
+
+  it("rejects dates that don't exist on the calendar", () => {
+    expect(normalizeDate("13/45/1990")).toBeNull();
+    expect(normalizeDate("02/30/1990")).toBeNull();
+    expect(normalizeDate("2026-02-29")).toBeNull();
+    expect(normalizeDate("Foo 5, 1990")).toBeNull();
+  });
 });
 
 describe("normalizeValue", () => {
