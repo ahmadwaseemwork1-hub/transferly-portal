@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaff, authErrorMessage } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeDate } from "@/lib/csv";
+import { estimateVehicleCount } from "@/lib/lead-parser";
 import { todayISO } from "@/lib/utils";
 import type { ActionResult } from "@/app/admin/actions";
 import type { LeadExtraField } from "@/lib/types";
@@ -85,7 +86,13 @@ export async function submitLeadTransfer(input: {
   const dobParsed = normalizeDate(dobText);
   const vehicleText = (lead.vehicle_count ?? "").trim();
   const vehicleCountParsed = Number.parseInt(vehicleText, 10);
-  const vehicleCount = Number.isFinite(vehicleCountParsed) ? vehicleCountParsed : null;
+  const vehicleCount = Number.isFinite(vehicleCountParsed)
+    ? vehicleCountParsed
+    : // No count entered, but cars are listed — work it out so the client
+      // never sees "—" for the number of cars when the cars are right there.
+      vehicleText
+      ? null
+      : estimateVehicleCount(lead.vehicles);
 
   // Fields may be left blank, but a value that was typed must never be
   // silently thrown away — that's how a date of birth used to vanish

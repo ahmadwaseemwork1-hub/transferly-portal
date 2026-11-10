@@ -44,15 +44,24 @@ function normalizePhone(raw: string): string {
   return raw.replace(/[^\d]/g, "");
 }
 
-/** Counts vehicles in a field that may list several separated by "/", "&", or "and". */
-function countVehicles(vehicles: string | null): number | null {
-  if (!vehicles) return 0;
-  const parts = vehicles
+/**
+ * Best guess at how many vehicles a free-text field lists. Vehicles may be
+ * separated by "/", "&", "," or "and" — or just run together
+ * ("2017 Ford Fusion 2025 Toyota Camry"), in which case each model year
+ * counts as one. Takes whichever method finds more. Null when empty.
+ */
+export function estimateVehicleCount(vehicles: string | null | undefined): number | null {
+  const text = (vehicles ?? "").trim();
+  if (!text || /^n\/?a$/i.test(text)) return null;
+  const parts = text
     .split(/\s*(?:\/|&|,|\band\b)\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
-  return parts.length || 1;
+  const years = text.match(/\b(?:19[5-9]\d|20[0-4]\d)\b/g) ?? [];
+  return Math.max(parts.length, years.length, 1);
 }
+
+const HOME_STATUS_WORD = /^(?:home\s*owner|owner|owns?|owned|rent(?:er|s|ed|ing)?)$/i;
 
 function isValidStateCode(value: string): boolean {
   return /^[A-Za-z]{2}$/.test(value.trim());
@@ -147,11 +156,28 @@ function parseNewFormat(fieldsIn: string[]): ParseLeadResult {
   }
   const zip_code = zipRaw.trim();
 
-  const vehicles = naToNull(vehiclesRaw);
-  const vehicle_count = countVehicles(vehicles);
-
+  let vehicles = naToNull(vehiclesRaw);
   const current_carrier = naToNull(carrierRaw);
-  const home_status = naToNull(homeStatusRaw);
+  let home_status = naToNull(homeStatusRaw);
+
+  // Some rows have "Homeowner"/"Renter" in the vehicles column (the layout
+  // differs between sheets). Move it where it belongs instead of letting it
+  // show up as a car — and instead of leaving home status empty.
+  if (vehicles && HOME_STATUS_WORD.test(vehicles)) {
+    if (!home_status) home_status = vehicles;
+    warnings.push(`"${vehicles}" was in the vehicles column — used as home owner / renter instead.`);
+    vehicles = null;
+  }
+  // Still empty? Look for an unmistakable owner/renter word anywhere in the row.
+  if (!home_status) {
+    const found = fields.findIndex((f) => HOME_STATUS_WORD.test(f.trim()));
+    if (found !== -1) {
+      home_status = fields[found].trim();
+      warnings.push(`Found "${home_status}" in column ${found + 1} — used as home owner / renter.`);
+    }
+  }
+
+  const vehicle_count = estimateVehicleCount(vehicles);
 
   const extra: LeadExtraField[] = NEW_EXTRA_LABELS.map(({ index, label }) => ({
     label,
@@ -298,7 +324,7 @@ function parseLegacyFormat(fieldsIn: string[]): ParseLeadResult {
 
   const vehicles = naToNull(vehiclesRaw);
   if (vehicle_count === null && vehicles) {
-    vehicle_count = countVehicles(vehicles);
+    vehicle_count = estimateVehicleCount(vehicles);
   }
   const { carrier: current_carrier, term: policy_term } = splitCarrierTerm(carrierTermRaw);
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseLeadPaste } from "../lead-parser";
+import { estimateVehicleCount, parseLeadPaste } from "../lead-parser";
 
 const LEGACY_SAMPLE_LINE =
   "Michael D Pratt\t12/10/1973\t7557 Arlington Expy, Jacksonville, FL 32211\t" +
@@ -166,5 +166,48 @@ describe("parseLeadPaste — legacy 9-column format (fallback)", () => {
     if (!result.ok) return;
     expect(result.lead.current_carrier).toBe("Geico");
     expect(result.lead.policy_term).toBeNull();
+  });
+});
+
+describe("estimateVehicleCount", () => {
+  it("counts vehicles separated by slashes, ampersands, commas or \"and\"", () => {
+    expect(estimateVehicleCount("2021 Lexus NX 300 // 2026 Toyota Camry")).toBe(2);
+    expect(estimateVehicleCount("Civic & Accord, Ram 1500")).toBe(3);
+  });
+
+  it("counts run-together vehicles by model year", () => {
+    expect(estimateVehicleCount("2017 Ford Fusion 2025 Toyota Camry")).toBe(2);
+    expect(estimateVehicleCount("2016 yukon denali 2020 chevy silverado 2012 honda")).toBe(3);
+  });
+
+  it("is 1 for a single vehicle and null when empty or NA", () => {
+    expect(estimateVehicleCount("chevy trax 2025")).toBe(1);
+    expect(estimateVehicleCount("")).toBeNull();
+    expect(estimateVehicleCount("NA")).toBeNull();
+    expect(estimateVehicleCount(undefined)).toBeNull();
+  });
+});
+
+describe("parseLeadPaste — home status in the wrong column", () => {
+  it("moves Homeowner out of the vehicles column and into home status", () => {
+    const row =
+      "Pat	Lee	01/02/1980	p@x.com	2155550101	1 Main St	Media	PA	19023	NA	NA	NA	Homeowner	NA	NA	Liberty Mutual	";
+    const result = parseLeadPaste(row);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.lead.home_status).toBe("Homeowner");
+    expect(result.lead.vehicles).toBeNull();
+    expect(result.lead.vehicle_count).toBeNull();
+    expect(result.lead.warnings.some((w) => w.includes("vehicles column"))).toBe(true);
+  });
+
+  it("finds an owner/renter word elsewhere in the row when the last column is empty", () => {
+    const row =
+      "Pat	Lee	01/02/1980	p@x.com	2155550101	1 Main St	Media	PA	19023	NA	NA	NA	2015 Kia Optima	Renter	NA	State Farm	";
+    const result = parseLeadPaste(row);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.lead.home_status).toBe("Renter");
+    expect(result.lead.vehicle_count).toBe(1);
   });
 });

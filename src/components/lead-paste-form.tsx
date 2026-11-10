@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
-import { parseLeadPaste } from "@/lib/lead-parser";
+import { estimateVehicleCount, parseLeadPaste } from "@/lib/lead-parser";
 import { normalizeDate } from "@/lib/csv";
 import { fetchLeadFormLookup, submitLeadTransfer, type EditableLeadInput } from "@/app/lead-actions";
 import { Button, Card, CardHeader, Input, Label, Select, Textarea } from "@/components/ui";
@@ -62,6 +62,9 @@ export function LeadPasteForm() {
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
   const [lead, setLead] = useState<EditableLeadInput>(EMPTY_LEAD);
+  // The car count follows the cars listed until someone sets it by hand;
+  // clearing the count box hands control back to the automatic count.
+  const countEditedByHand = useRef(false);
 
   const [clientId, setClientId] = useState("");
   const [agentId, setAgentId] = useState("");
@@ -103,6 +106,7 @@ export function LeadPasteForm() {
     }
     setParseError(null);
     setParseWarnings(result.lead.warnings);
+    countEditedByHand.current = false;
     setLead({
       first_name: result.lead.first_name,
       last_name: result.lead.last_name,
@@ -123,7 +127,16 @@ export function LeadPasteForm() {
   }, [raw]);
 
   function updateField<K extends keyof Omit<EditableLeadInput, "extra">>(key: K, value: string) {
-    setLead((l) => ({ ...l, [key]: value }));
+    if (key === "vehicle_count") countEditedByHand.current = value.trim() !== "";
+    const autoCount = key === "vehicles" && !countEditedByHand.current;
+    setLead((l) => {
+      const next = { ...l, [key]: value };
+      if (autoCount) {
+        const n = estimateVehicleCount(value);
+        next.vehicle_count = n === null ? "" : String(n);
+      }
+      return next;
+    });
   }
 
   function updateExtra(index: number, patch: Partial<LeadExtraField>) {
@@ -167,6 +180,7 @@ export function LeadPasteForm() {
     }
     setSuccess(true);
     setRaw("");
+    countEditedByHand.current = false;
     setLead(EMPTY_LEAD);
     setHasParsed(false);
     setTime("");
